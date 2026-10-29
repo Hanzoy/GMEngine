@@ -14,7 +14,7 @@ CompiledUi compileUi(const Json& source,const std::filesystem::path& sourceDirec
     std::unordered_map<std::filesystem::path,uint32_t> imageIds;uint64_t imageBytes=0;
     auto imageIndex=[&](const std::string& sourcePath) {
         if(sourcePath.empty()) throw std::runtime_error("Image source is empty");
-        auto path=std::filesystem::canonical(sourceDirectory/std::filesystem::path(std::u8string(sourcePath.begin(),sourcePath.end())));
+        auto path=std::filesystem::canonical(resolveResource(sourceDirectory,sourcePath));
         if(auto it=imageIds.find(path);it!=imageIds.end()) return it->second;
         auto image=importImage(path);imageBytes+=image.rgba.size();
         if(imageBytes>MaxImageBytes) throw std::runtime_error("UI images exceed the 64 MiB decoded budget");

@@ -17,7 +17,7 @@ $package=Invoke-Sdk $manifest @{op='project.package'}
 $check=Start-Process -FilePath $package.result.executable -ArgumentList '--check' -WorkingDirectory $package.result.directory -WindowStyle Hidden -PassThru -Wait
 if($check.ExitCode -ne 0){throw 'Relocated SDK package failed'}
 $session=Join-Path $fixture 'session'
-$editor=Start-Process -FilePath (Join-Path $portable 'bin/gm_editor.exe') -ArgumentList @('--session',('"'+$session+'"')) -WindowStyle Hidden -PassThru
+$editor=Start-Process -FilePath (Join-Path $portable 'bin/gm_editor.exe') -ArgumentList @('--editor-shell','--session',('"'+$session+'"')) -WindowStyle Hidden -PassThru
 try{
  $timer=[Diagnostics.Stopwatch]::StartNew();while(-not (Test-Path -LiteralPath "$session/session.json")){if($editor.HasExited -or $timer.Elapsed.TotalSeconds -gt 20){throw 'Relocated editor failed to start'};Start-Sleep -Milliseconds 80}
  $state=Get-Content -LiteralPath "$session/session.json" -Raw|ConvertFrom-Json

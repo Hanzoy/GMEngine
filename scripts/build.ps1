@@ -9,5 +9,5 @@ if($LASTEXITCODE -ne 0){throw 'Build failed'}
 & ctest --test-dir $engineBuild -C $Configuration --output-on-failure
 if($LASTEXITCODE -ne 0){throw 'Tests failed'}
 & cmake --install $engineBuild --config $Configuration
-if($LASTEXITCODE -ne 0){throw 'SDK installation failed'}
-Write-Host "Engine SDK: $engineSdk"
+if($LASTEXITCODE -ne 0){throw 'GM Engine installation failed'}
+Write-Host "GM Engine: $engineSdk"

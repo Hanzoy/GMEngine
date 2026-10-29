@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 #include <functional>
 #include <set>
 #include <stdexcept>
@@ -24,6 +25,14 @@ const Field spriteFields[]={
     GM_FLOAT(SpriteRenderer,width,"宽度",64,1,4096),GM_FLOAT(SpriteRenderer,height,"高度",64,1,4096),
     {"tint","着色",Kind::Color,offsetof(SpriteRenderer,tint),0xffffffff,0,UINT32_MAX},GM_FLOAT(SpriteRenderer,order,"绘制顺序",0,-1000,1000)};
 const char* transformDependency[]={"Transform2D"};
+const Field poseFields[]={GM_FLOAT(Pose2D,rotation,"旋转角度",0,-360000,360000),GM_FLOAT(Pose2D,scaleX,"缩放 X",1,.001,1000),GM_FLOAT(Pose2D,scaleY,"缩放 Y",1,.001,1000)};
+const Field cameraFields[]={GM_FLOAT(Camera2D,zoom,"缩放",1,.01,100),GM_BOOL(Camera2D,enabled,"启用",1),GM_INT(Camera2D,priority,"优先级",0,-1000,1000)};
+const Field regionFields[]={GM_FLOAT(SpriteRegion,u0,"U 起点",0,0,1),GM_FLOAT(SpriteRegion,v0,"V 起点",0,0,1),GM_FLOAT(SpriteRegion,u1,"U 终点",1,0,1),GM_FLOAT(SpriteRegion,v1,"V 终点",1,0,1)};
+const Field colliderFields[]={GM_FLOAT(Collider2D,width,"宽度",64,.001,16384),GM_FLOAT(Collider2D,height,"高度",64,.001,16384),GM_FLOAT(Collider2D,offsetX,"偏移 X",0,-16384,16384),GM_FLOAT(Collider2D,offsetY,"偏移 Y",0,-16384,16384),GM_INT(Collider2D,layer,"碰撞层位掩码",1,1,65535),GM_INT(Collider2D,mask,"接收层位掩码",65535,0,65535),GM_BOOL(Collider2D,enabled,"启用",1)};
+const Field animationFields[]={GM_INT(SpriteAnimation,columns,"图集列数",1,1,256),GM_INT(SpriteAnimation,rows,"图集行数",1,1,256),GM_INT(SpriteAnimation,frames,"帧数",1,1,65536),GM_FLOAT(SpriteAnimation,fps,"帧率",12,0,240),GM_FLOAT(SpriteAnimation,time,"播放时间",0,0,1000000),GM_BOOL(SpriteAnimation,playing,"播放",1),GM_BOOL(SpriteAnimation,loop,"循环",1)};
+const char* animationDependencies[]={"SpriteRenderer","SpriteRegion"};
+bool validAnimation(const void* ptr,char* error,uint32_t capacity){auto& a=*static_cast<const SpriteAnimation*>(ptr);if(a.frames<=a.columns*a.rows)return true;if(capacity)std::snprintf(error,capacity,"frames exceeds atlas cells");return false;}
+void animate(void*,const Context* context){context->each<SpriteAnimation,SpriteRegion>([&](Entity,SpriteAnimation& a,SpriteRegion& r){if(a.playing)a.time+=context->frame->dt;auto frame=int64_t(a.time*a.fps);if(a.loop)frame%=a.frames;else if(frame>=a.frames){frame=a.frames-1;a.playing=0;}r={float(frame%a.columns)/a.columns,float(frame/a.columns)/a.rows,float(frame%a.columns+1)/a.columns,float(frame/a.columns+1)/a.rows};});}
 void integrate(void*,const Context* c) {c->each<Transform2D,const Velocity>([&](Entity,Transform2D& p,const Velocity& v){p.x+=v.x*c->frame->dt;p.y+=v.y*c->frame->dt;});}
 std::shared_ptr<GameRegistry>& current(){static auto value=std::make_shared<GameRegistry>();return value;}
 void check(bool test,const std::string& message){if(!test)throw std::runtime_error(message);}
@@ -31,7 +40,8 @@ bool validName(const char* s){return s&&*s&&std::strlen(s)<=128&&std::all_of(s,s
 }
 GameRegistry::GameRegistry(){
     for(auto d:{sdk::component<Transform2D>("Transform 2D",transformFields,2),sdk::component<Velocity>("Velocity",velocityFields,2,transformDependency,1),sdk::component<SpriteRenderer>("Sprite Renderer",spriteFields,5,transformDependency,1)})components_.push_back({d,sdk::id(d.name),true});
-    sdk::System movement{"gm.IntegrateVelocity","速度积分",sdk::Phase::Simulation,nullptr,0,nullptr,nullptr,integrate};systems_.push_back({movement,sdk::id(movement.name),true});finalize();
+    for(auto d:{sdk::component<Pose2D>("Pose 2D",poseFields,3,transformDependency,1),sdk::component<Camera2D>("Camera 2D",cameraFields,3,transformDependency,1),sdk::component<SpriteRegion>("Sprite Region",regionFields,4),sdk::component<Collider2D>("Collider 2D (Trigger)",colliderFields,7,transformDependency,1),sdk::component<SpriteAnimation>("Sprite Animation",animationFields,7,animationDependencies,2,validAnimation)})components_.push_back({d,sdk::id(d.name),true});
+    sdk::System movement{"gm.IntegrateVelocity","速度积分",sdk::Phase::Simulation,nullptr,0,nullptr,nullptr,integrate};systems_.push_back({movement,sdk::id(movement.name),true});sdk::System animation{"gm.SpriteAnimation","精灵动画",sdk::Phase::Late,nullptr,0,nullptr,nullptr,animate};systems_.push_back({animation,sdk::id(animation.name),true});finalize();
 }
 GameRegistry::~GameRegistry(){
     if(library_){
@@ -73,7 +83,7 @@ void GameRegistry::finalize(){
         for(uint32_t i=0;i<d.fieldCount;++i){const auto& f=d.fields[i];check(validName(f.name)&&fields.insert(f.name).second&&f.label&&f.kind<=sdk::Kind::Image&&f.offset%4==0&&f.offset+4<=d.size&&offsets.insert(f.offset).second,"Invalid / overlapping component field");check(std::isfinite(f.initial)&&std::isfinite(f.minimum)&&std::isfinite(f.maximum)&&f.minimum<=f.initial&&f.initial<=f.maximum,"Invalid component range/default");if(f.kind==sdk::Kind::Int)check(f.minimum>=INT32_MIN&&f.maximum<=INT32_MAX&&std::floor(f.initial)==f.initial,"Integer range exceeds int32");if(f.kind==sdk::Kind::Bool)check(f.minimum==0&&f.maximum==1&&(f.initial==0||f.initial==1),"Bool fields use uint32_t 0/1");}
     }
     std::set<sdk::TypeId> visiting,done;std::function<void(const NativeComponent&)> visit=[&](const NativeComponent& c){if(done.count(c.id))return;check(visiting.insert(c.id).second,"Component dependency cycle");for(uint32_t i=0;i<c.descriptor.requiresCount;++i)visit(component(c.descriptor.requiresTypes[i]));visiting.erase(c.id);done.insert(c.id);};for(const auto& c:components_)visit(c);
-    ids.clear();for(const auto& s:systems_){check(ids.insert(s.id).second&&s.descriptor.label&&s.descriptor.update&&s.descriptor.phase<=sdk::Phase::Late&&s.descriptor.afterCount<=128&&(!s.descriptor.afterCount||s.descriptor.after),"Invalid / duplicate System");check(bool(s.descriptor.create)==bool(s.descriptor.destroy),"System create/destroy must be paired");}
+    ids.clear();for(const auto& s:systems_){check(ids.insert(s.id).second&&s.descriptor.label&&s.descriptor.update&&s.descriptor.phase<=sdk::Phase::Late&&s.descriptor.afterCount<=128&&(!s.descriptor.afterCount||s.descriptor.after),"Invalid / duplicate System");check(bool(s.descriptor.create)==bool(s.descriptor.destroy),"System create/destroy must be paired");check(s.descriptor.accessCount<=256&&(!s.descriptor.accessCount||s.descriptor.access),"Invalid System access contract");std::set<sdk::TypeId> access;for(uint32_t i=0;i<s.descriptor.accessCount;++i){auto term=s.descriptor.access[i];check(term.write<=1&&access.insert(term.type).second,"Duplicate / invalid System access term");if(term.type!=sdk::id(sdk::WorldPosition::gm_name))component(term.type);else check(!term.write,"WorldPosition is computed, not writable");}}
     std::vector<NativeSystem> sorted;visiting.clear();done.clear();std::function<void(const NativeSystem&)> order=[&](const NativeSystem& s){if(done.count(s.id))return;check(visiting.insert(s.id).second,"System dependency cycle");for(uint32_t i=0;i<s.descriptor.afterCount;++i){const auto& dep=system(s.descriptor.after[i]);check(dep.descriptor.phase<=s.descriptor.phase,"System dependency points to a later phase");order(dep);}visiting.erase(s.id);done.insert(s.id);sorted.push_back(s);};
     for(uint32_t phase=0;phase<4;++phase)for(const auto& s:systems_)if(uint32_t(s.descriptor.phase)==phase)order(s);systems_=std::move(sorted);
     fingerprint_=sdk::id(name_.c_str());auto hash=[&](std::string value){for(unsigned char c:value){fingerprint_^=c;fingerprint_*=1099511628211ull;}fingerprint_^=0xff;fingerprint_*=1099511628211ull;};

@@ -25,6 +25,7 @@ public:
     bgfx::TextureHandle uploadImage(const UiImage& image);
     void releaseImage(bgfx::TextureHandle image);
     void image(Rect box,bgfx::TextureHandle image,ImageFit fit,uint32_t tint=0xffffffff);
+    void sprite(const std::array<float,8>& points,bgfx::TextureHandle image,uint32_t tint,Rect uv={0,0,1,1});
     size_t imageTextureCount() const {return images_.size();}
     const Stats& stats() const {return stats_;}
 private:

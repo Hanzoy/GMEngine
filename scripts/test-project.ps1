@@ -12,7 +12,7 @@ $created=Project-Send $projectSample @(@{op='project.create';directory=$projectF
 $projectManifest=$created.result.manifest
 Project-Check (Test-Path -LiteralPath $projectManifest) 'Create project outside engine, with Unicode and spaces'
 $initial=Project-Send $projectManifest @(@{op='project.query'})
-Project-Check ($initial.result.components.Count -eq 4 -and $initial.result.systems.Count -eq 2) 'SDK-only module builds and registers from independent CMake project'
+Project-Check ($initial.result.components.Count -eq 9 -and $initial.result.systems.Count -eq 3) 'SDK-only module builds and registers from independent CMake project'
 $template=Project-Send $projectManifest @(@{op='preview.run'},@{op='runtime.step';frames=6;x=1},@{op='preview.stop'})
 $originalX=$template[0].entities[0].x
 Project-Check ([Math]::Abs($template[1].entities[0].x-$originalX-10) -lt .02) 'Template native System drives engine movement'
@@ -25,11 +25,11 @@ const Field clockFields[]={GM_INT(Clock,frames,"Frames",0,0,2147483647),GM_BOOL(
 void tickClock(void*,const Context* c){c->each<Clock>([](Entity,Clock& clock){if(clock.enabled)++clock.frames;});}
 '@)
 $scriptText=$scriptText.Replace('component<Mover>("Mover",fields,1,required,2)}','component<Mover>("Mover",fields,1,required,2),component<Clock>("Clock",clockFields,2)}')
-$scriptText=$scriptText.Replace('nullptr,nullptr,move}}','nullptr,nullptr,move},{"game.ClockTick","Clock tick",Phase::Late,nullptr,0,nullptr,nullptr,tickClock}}')
+$scriptText=$scriptText.Replace('nullptr,nullptr,move,access,2}}','nullptr,nullptr,move,access,2},{"game.ClockTick","Clock tick",Phase::Late,nullptr,0,nullptr,nullptr,tickClock}}')
 $scriptText=$scriptText.Replace('components,1,systems,1','components,2,systems,2')
 [IO.File]::WriteAllText($scriptPath,$scriptText,[Text.UTF8Encoding]::new($false))
 $extended=Project-Send $projectManifest @(@{op='project.build'},@{op='project.query'})
-Project-Check ($extended[1].result.components.Count -eq 5 -and $extended[1].result.systems.Count -eq 3) 'New project component and System register without engine changes'
+Project-Check ($extended[1].result.components.Count -eq 10 -and $extended[1].result.systems.Count -eq 4) 'New project component and System register without engine changes'
 $scene=Get-Content (Join-Path $projectFixture 'assets/main.scene.json') -Raw | ConvertFrom-Json
 $entityId=$scene.entities[0].id
 $edits=Project-Send $projectManifest @(@{op='component.add';id=$entityId;type='game.Clock'},@{op='set';id=$entityId;property='game.Mover.speed';value=150},@{op='save'},@{op='preview.run'},@{op='runtime.step';frames=12;x=1},@{op='preview.stop'})

@@ -1,5 +1,6 @@
 #include "runtime_view.hpp"
 #include "scene_view.hpp"
+#include "scene_catalog.hpp"
 #include <chrono>
 #include <windows.h>
 #include <windowsx.h>
@@ -14,6 +15,7 @@ public:
     Player(HWND window,const std::filesystem::path& path):window_(window),path_(path) {
         RECT area;GetClientRect(window_,&area);renderer_=std::make_unique<gm::Renderer>(window_,area.right,area.bottom);
         if(path.extension()==".gmscene") {scene_=std::make_unique<gm::SceneRuntime>(gm::loadScene(path));sceneView_=std::make_unique<gm::SceneView>(*renderer_);ImmAssociateContextEx(window_,nullptr,0);}else document_=std::make_unique<gm::RuntimeDocument>(path);
+        auto catalog=path.parent_path()/"scenes.gmcatalog";if(scene_&&std::filesystem::exists(catalog))loader_=std::make_unique<gm::SceneLoader>(catalog);
     }
     ~Player(){sceneView_.reset();view_.clear(*renderer_);}
     bool needsFrame() const {return (redraw_||(scene_&&GetForegroundWindow()==window_)) && !IsIconic(window_);}
@@ -21,9 +23,21 @@ public:
     void requestFrame() {redraw_=true;}
     void key(WPARAM key){if(!scene_)return;if(key=='D'||key==VK_RIGHT)pending_.x=1;if(key=='A'||key==VK_LEFT)pending_.x=-1;if(key=='S'||key==VK_DOWN)pending_.y=1;if(key=='W'||key==VK_UP)pending_.y=-1;}
     void frame() {
+        if(scene_)try{
+            auto request=scene_->takeSceneRequest();
+            if(!request.empty()){if(!loader_)throw std::runtime_error("No scene catalog; build/package the project first");loader_->request(request);}
+            if(loader_)if(auto ready=loader_->poll()){
+                auto next=std::make_unique<gm::SceneRuntime>(std::move(*ready));
+                sceneView_->clear();scene_=std::move(next);lastLoadError_.clear();
+                pressed_=gm::NoIndex;ReleaseCapture();lastTick_=std::chrono::steady_clock::now();
+            }
+        }catch(const std::exception& error){
+            if(lastLoadError_!=error.what()){lastLoadError_=error.what();MessageBoxW(window_,gm::wide(lastLoadError_).c_str(),L"Scene load failed",MB_OK|MB_ICONERROR);}
+            lastTick_=std::chrono::steady_clock::now();
+        }
         RECT area;GetClientRect(window_,&area);if(area.right<1 || area.bottom<1) return;
         if(scene_){auto now=std::chrono::steady_clock::now();float dt=std::chrono::duration<float>(now-lastTick_).count();lastTick_=now;gm::SceneInput input;
-            if(GetForegroundWindow()==window_){auto held=[](int k){return (GetAsyncKeyState(k)&0x8000)!=0;};input={float(held('D')||held(VK_RIGHT))-float(held('A')||held(VK_LEFT)),float(held('S')||held(VK_DOWN))-float(held('W')||held(VK_UP))};if(input.x==0)input.x=pending_.x;if(input.y==0)input.y=pending_.y;pending_={};scene_->tick(dt,input);}
+            if(GetForegroundWindow()==window_){auto held=[](int k){return (GetAsyncKeyState(k)&0x8000)!=0;};input={float(held('D')||held(VK_RIGHT))-float(held('A')||held(VK_LEFT)),float(held('S')||held(VK_DOWN))-float(held('W')||held(VK_UP))};if(input.x==0)input.x=pending_.x;if(input.y==0)input.y=pending_.y;pending_={};scene_->advance(dt,input);}
             renderer_->begin(area.right,area.bottom);sceneView_->render(*scene_,{0,0,float(area.right),float(area.bottom)});renderer_->end();redraw_=false;return;}
         renderer_->begin(area.right,area.bottom);view_.render(*renderer_,*document_,float(area.right),float(area.bottom));
         const auto hovered=view_.layout.hit(mouseX_,mouseY_);
@@ -57,6 +71,8 @@ private:
     HWND window_;std::filesystem::path path_;std::unique_ptr<gm::RuntimeDocument> document_;gm::RuntimeView view_;
     std::unique_ptr<gm::Renderer> renderer_;
     std::unique_ptr<gm::SceneRuntime> scene_;std::unique_ptr<gm::SceneView> sceneView_;
+    std::unique_ptr<gm::SceneLoader> loader_;
+    std::string lastLoadError_;
     std::chrono::steady_clock::time_point lastTick_=std::chrono::steady_clock::now();
     gm::SceneInput pending_{};
     uint32_t pressed_=gm::NoIndex;float mouseX_=-1,mouseY_=-1;bool redraw_=true;

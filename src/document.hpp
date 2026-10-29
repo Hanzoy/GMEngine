@@ -8,6 +8,7 @@
 namespace gm {
 using Json = nlohmann::ordered_json;
 Json readJson(const std::filesystem::path& path);
+std::filesystem::path resolveResource(const std::filesystem::path& directory,const std::string& reference);
 void writeJsonAtomic(const std::filesystem::path& path, const Json& data);
 Json* findNode(Json& node, const std::string& id);
 const Json* findNode(const Json& node, const std::string& id);

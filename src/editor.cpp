@@ -82,9 +82,10 @@ public:
             if(scenePlay_&&(op=="set"||op=="batch"||op=="undo"||op=="redo"||op=="reload"||op=="create"||op=="remove"||op=="duplicate"||op=="asset.add"||op=="asset.apply"||op=="system.set"||op.starts_with("binding.")||op.starts_with("entity.")||op.starts_with("component.")))throw std::runtime_error("请先停止运行，再编辑场景组件。");
             if(op.starts_with("project."))return projectCommand(request);
             if(op=="dialog.project.open"||op=="dialog.project.new"){projectDialog(op=="dialog.project.new");return state();}
-            if(op=="view.inspector"){auto page=request.at("page").get<std::string>();if(page!="components"&&page!="systems"&&page!="project")throw std::runtime_error("Unknown inspector page");if(page=="systems"&&!sceneMode())throw std::runtime_error("Open a scene to edit Systems");inspectorPage_=page;assetInspection_=false;inspectorScroll_=0;return state();}
+            if(op=="view.inspector"){auto page=request.at("page").get<std::string>();if(page!="components"&&page!="systems"&&page!="project"&&page!="profiler")throw std::runtime_error("Unknown inspector page");if(page=="systems"&&!sceneMode())throw std::runtime_error("Open a scene to edit Systems");inspectorPage_=page;assetInspection_=false;inspectorScroll_=0;return state();}
             if(op=="view.scene"){sceneGameView_=request.at("game").get<bool>()&&scenePlay_;setGameFocus(false);return state();}
             if(op=="runtime.query")return sceneRuntimeState();
+            if(op.starts_with("runtime.")&&op!="runtime.step"&&op!="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");auto result=gm::runtimeCommand(*scenePlay_,request,gameProject_);if(op=="runtime.load"||op=="runtime.scene.switch")sceneView_->clear();requestFrame();return result;}
             if(op=="preview.pause"){if(!scenePlay_)throw std::runtime_error("Scene is not running");scenePaused_=request.value("paused",!scenePaused_);return sceneRuntimeState();}
             if(op=="preview.step"||op=="runtime.step"){if(!scenePlay_||!scenePaused_)throw std::runtime_error("Pause the scene before stepping");auto frames=request.value("frames",1);if(frames<1||frames>10000)throw std::runtime_error("frames must be 1..10000");for(int i=0;i<frames;++i)scenePlay_->tick(1.f/60,{request.value("x",0.f),request.value("y",0.f)});return sceneRuntimeState();}
             if(op=="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");if(!scenePlay_->activateUi(request.at("node").get<uint32_t>()))throw std::runtime_error("UI action not found");return sceneRuntimeState();}
@@ -226,7 +227,7 @@ public:
     void mouseMove(float x,float y) {
         if(x!=mouseX_ || y!=mouseY_) requestFrame();
         mouseX_=x;mouseY_=y;
-        if(dragMode_=="node" || dragMode_=="resize" || dragMode_=="scene-node") { dx_=std::round((x-startX_)/previewScale_);dy_=std::round((y-startY_)/previewScale_); }
+        if(dragMode_=="node" || dragMode_=="resize" || dragMode_=="scene-node") {auto delta=gm::Transform2D{(x-startX_)/previewScale_,(y-startY_)/previewScale_};if(dragMode_=="scene-node")delta=sceneLocalDelta(delta.x,delta.y);dx_=std::round(delta.x);dy_=std::round(delta.y);}
         else if(dragMode_=="pan") { panX_=oldPanX_+x-startX_;panY_=oldPanY_+y-startY_; }
         else if(dragMode_=="left") layout_.left=x/scale_;
         else if(dragMode_=="right") layout_.right=width_-x/scale_;
@@ -575,7 +576,7 @@ private:
         for(const auto& [label,name]:std::vector<std::pair<std::string,std::string>>{{"文件","file"},{"编辑","edit"},{"节点","node"},{"视图","view"},{"项目","project"},{"工具","tools"}}) {
             button({x,r.y,48*scale_,r.h},sceneMode()&&name=="node"?"实体":label,{{"op","menu"},{"name",name}});x+=50*scale_;
         }
-        text(r.x+r.w-124*scale_,r.y+8*scale_,"GM ENGINE  0.7",11,muted(),116*scale_);
+        text(r.x+r.w-124*scale_,r.y+8*scale_,"GM ENGINE  0.8",11,muted(),116*scale_);
     }
     void inputBox(Rect box,const std::string& key,const std::string& value,const std::string& placeholder="",bool property=true) {
         const bool active=edit_ && edit_->property==key && (!property || edit_->node==doc_.selected());
@@ -672,7 +673,7 @@ private:
             hits_.push_back({row,{{"op","files.folder"},{"path",pathText(file.path)}},pathText(file.path),true});y+=25*scale_;
         }
         scrollbar(folders,folderCount,folderRows,folderScroll_);renderer_->clip(r);const float start=r.x+side+12*scale_;
-        std::error_code ec;auto relative=std::filesystem::relative(selectedFolder_,root_,ec);
+        std::error_code ec;auto relative=std::filesystem::relative(selectedFolder_,contentRoot(),ec);
         text(start,r.y+38*scale_,pathText(ec?selectedFolder_:relative),12,muted(),std::max(30*scale_,r.w-side-224*scale_));
         inputBox({r.x+r.w-206*scale_,r.y+33*scale_,194*scale_,25*scale_},"$files",fileSearch_,"搜索资源…",false);
         std::vector<const FileItem*> filtered;
@@ -804,6 +805,7 @@ private:
     }
     void drawInspector(Rect r,const std::string& title) {
         if(inspectorPage_=="project") {inspectorTabs(r);drawProjectInspector(r);return;}
+        if(inspectorPage_=="profiler") {inspectorTabs(r);drawProfiler(r);return;}
         if(assetInspection_) {drawAssetInspector(r);return;}
         if(sceneMode()){drawSceneInspector(r);return;}
 
@@ -869,7 +871,7 @@ private:
     void drawStatus(Rect r) {
         renderer_->rect({r.x,r.y,r.w,scale_},C("#16181B"));
         auto display=message_;
-        if(display.empty()) {std::error_code ec;auto relative=std::filesystem::relative(doc_.path(),root_,ec);display=pathText(ec?doc_.path():relative);}
+        if(display.empty()) {std::error_code ec;auto relative=std::filesystem::relative(doc_.path(),contentRoot(),ec);display=pathText(ec?doc_.path():relative);}
         text(r.x+10*scale_,r.y+4*scale_,display,11,error_?C("#DDA29A"):muted(),r.w-145*scale_);
         text(r.x+r.w-120*scale_,r.y+4*scale_,doc_.dirty()?"● 未保存":"已保存",11,doc_.dirty()?C("#D1B88A"):muted(),110*scale_);
     }
@@ -942,15 +944,19 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wp,LPARAM lp) {
     return DefWindowProcW(window,message,wp,lp);
 }
 }
+#include "project_launcher.hpp"
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int) {
     try {
         SetProcessDPIAware();
-        std::filesystem::path project=gm::engineRoot()/"editor/editor.ui.json",game;
-        std::filesystem::path session=gm::engineRoot()/".gmengine/session";
+        std::filesystem::path project,game,session;
         int argc=0;auto args=CommandLineToArgvW(GetCommandLineW(),&argc);
-        for(int i=1;i<argc;++i) {std::wstring arg=args[i];if(arg==L"--project" && i+1<argc) project=args[++i];else if(arg==L"--game"&&i+1<argc)game=args[++i];else if(arg==L"--session" && i+1<argc) session=args[++i];else throw std::runtime_error("Expected --project FILE, --game MANIFEST or --session DIRECTORY");}
+        for(int i=1;i<argc;++i) {std::wstring arg=args[i];if(arg==L"--project" && i+1<argc) project=args[++i];else if(arg==L"--game"&&i+1<argc)game=args[++i];else if(arg==L"--session" && i+1<argc) session=args[++i];else if(arg==L"--editor-shell")project=gm::engineRoot()/"editor/editor.ui.json";else throw std::runtime_error("Expected --project FILE, --game MANIFEST, --editor-shell or --session DIRECTORY");}
         LocalFree(args);
+        if(project.empty())project=game.empty()?gm::chooseProject():game;
+        if(project.empty())return 0;
+        if(session.empty()){auto text=std::filesystem::absolute(project).generic_u8string();std::string key(text.begin(),text.end());session=gm::userDataRoot()/"sessions"/std::to_string(gm::sdk::id(key.c_str()))/"live";}
         auto gameProject=gm::activateProject(project,game);
+        gm::rememberProject(gameProject);
         WNDCLASSW cls{};cls.style=CS_DBLCLKS;cls.lpfnWndProc=windowProc;cls.hInstance=instance;cls.lpszClassName=L"GMEngineEditor";cls.hCursor=LoadCursor(nullptr,IDC_ARROW);cls.hIcon=LoadIcon(nullptr,IDI_APPLICATION);RegisterClassW(&cls);
         RECT bounds{0,0,1440,900};AdjustWindowRect(&bounds,WS_OVERLAPPEDWINDOW,FALSE);
         HWND window=CreateWindowExW(0,cls.lpszClassName,L"GM Engine",WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,bounds.right-bounds.left,bounds.bottom-bounds.top,nullptr,nullptr,instance,nullptr);

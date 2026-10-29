@@ -115,6 +115,14 @@ void Renderer::image(Rect box,bgfx::TextureHandle handle,ImageFit fit,uint32_t t
     quad(p.bounds,handle,tint,p.u1,p.u0,p.v1,p.v0);
 }
 void Renderer::border(Rect r,uint32_t c,float t) { rect({r.x,r.y,r.w,t},c);rect({r.x,r.y+r.h-t,r.w,t},c);rect({r.x,r.y,t,r.h},c);rect({r.x+r.w-t,r.y,t,r.h},c); }
+void Renderer::sprite(const std::array<float,8>& points,bgfx::TextureHandle texture,uint32_t tint,Rect uv){
+    if(!bgfx::isValid(texture))texture=white_;if(!(tint>>24))return;
+    std::array<Vertex,12> polygon{},scratch{};size_t count=4;
+    polygon[0]={points[0],points[1],uv.x,uv.y,tint};polygon[1]={points[2],points[3],uv.x+uv.w,uv.y,tint};polygon[2]={points[4],points[5],uv.x+uv.w,uv.y+uv.h,tint};polygon[3]={points[6],points[7],uv.x,uv.y+uv.h,tint};
+    // Clip rotated quads in CPU space; retain batching and interpolate UVs.
+    if(clipEnabled_)for(int side=0;side<4&&count;++side){size_t output=0;float edge=side==0?clipRect_.x:side==1?clipRect_.x+clipRect_.w:side==2?clipRect_.y:clipRect_.y+clipRect_.h;auto coordinate=[&](const Vertex& v){return side<2?v.x:v.y;};auto inside=[&](const Vertex& v){return side%2?coordinate(v)<=edge:coordinate(v)>=edge;};for(size_t i=0;i<count;++i){auto a=polygon[i],b=polygon[(i+1)%count];bool inA=inside(a),inB=inside(b);if(inA)scratch[output++]=a;if(inA!=inB){float t=(edge-coordinate(a))/(coordinate(b)-coordinate(a));scratch[output++]={a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.u+(b.u-a.u)*t,a.v+(b.v-a.v)*t,tint};}}polygon=scratch;count=output;}
+    if(count<3)return;if(texture.idx!=batchTexture_.idx||vertices_.size()+count>=4096){flush();batchTexture_=texture;}auto base=uint16_t(vertices_.size());vertices_.insert(vertices_.end(),polygon.begin(),polygon.begin()+count);for(uint16_t i=1;i+1<count;++i){indices_.push_back(base);indices_.push_back(base+i);indices_.push_back(base+i+1);}++stats_.quads;
+}
 Renderer::Texture Renderer::makeText(const std::string& s,int size) {
     ++stats_.textUploads;
     const auto ws=wide(s); HDC dc=CreateCompatibleDC(nullptr);
