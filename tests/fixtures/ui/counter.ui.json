@@ -1,0 +1,126 @@
+{
+  "format": "gm.ui",
+  "version": 1,
+  "root": {
+    "id": "canvas",
+    "name": "Serialization fixture",
+    "type": "panel",
+    "x": 0,
+    "y": 0,
+    "w": 960,
+    "h": 600,
+    "color": "#151B27",
+    "children": [
+      {
+        "id": "card",
+        "name": "Serialization fixture",
+        "type": "panel",
+        "x": 220,
+        "y": 90,
+        "w": 520,
+        "h": 420,
+        "color": "#242D3E",
+        "children": [
+          {
+            "id": "title",
+            "name": "Serialization fixture",
+            "type": "label",
+            "x": 36,
+            "y": 30,
+            "w": 448,
+            "h": 44,
+            "text": "title",
+            "fontSize": 28,
+            "textColor": "#F1F5FC"
+          },
+          {
+            "id": "description",
+            "name": "Serialization fixture",
+            "type": "label",
+            "x": 36,
+            "y": 87,
+            "w": 448,
+            "h": 28,
+            "text": "description",
+            "fontSize": 16,
+            "textColor": "#ADBBD0"
+          },
+          {
+            "id": "count",
+            "name": "Serialization fixture",
+            "type": "label",
+            "x": 36,
+            "y": 143,
+            "w": 448,
+            "h": 72,
+            "text": "0",
+            "fontSize": 48,
+            "textColor": "#F1F5FC"
+          },
+          {
+            "id": "add",
+            "name": "Serialization fixture",
+            "type": "button",
+            "x": 36,
+            "y": 241,
+            "w": 216,
+            "h": 50,
+            "text": "+1",
+            "fontSize": 18,
+            "color": "#527BD6",
+            "textColor": "#FFFFFF",
+            "action": {
+              "op": "increment",
+              "id": "count",
+              "property": "text",
+              "amount": 1
+            }
+          },
+          {
+            "id": "reset",
+            "name": "Serialization fixture",
+            "type": "button",
+            "x": 268,
+            "y": 241,
+            "w": 216,
+            "h": 50,
+            "text": "重置",
+            "fontSize": 18,
+            "color": "#3B4860",
+            "textColor": "#E4ECF8",
+            "action": {
+              "op": "set",
+              "id": "count",
+              "property": "text",
+              "value": "0"
+            }
+          },
+          {
+            "id": "hint",
+            "name": "Serialization fixture",
+            "type": "label",
+            "x": 36,
+            "y": 324,
+            "w": 448,
+            "h": 28,
+            "text": "hint",
+            "fontSize": 14,
+            "textColor": "#ADBBD0"
+          },
+          {
+            "id": "reload_hint",
+            "name": "Serialization fixture",
+            "type": "label",
+            "x": 36,
+            "y": 358,
+            "w": 448,
+            "h": 28,
+            "text": "reload_hint",
+            "fontSize": 14,
+            "textColor": "#8E9DB5"
+          }
+        ]
+      }
+    ]
+  }
+}

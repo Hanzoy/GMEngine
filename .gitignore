@@ -1,0 +1,17 @@
+build/
+dist/
+third_party/
+.gmengine/
+*.tmp
+*.bak
+.vs/
+**/build/
+**/dist/
+out/
+CMakeUserPresets.json
+*.exe
+*.dll
+*.lib
+*.pdb
+*.obj
+*.ilk

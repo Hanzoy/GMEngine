@@ -1,0 +1,332 @@
+{
+  "format": "gm.ui",
+  "version": 1,
+  "root": {
+    "id": "canvas",
+    "type": "panel",
+    "x": 0,
+    "y": 0,
+    "w": 1120,
+    "h": 720,
+    "color": "#101923",
+    "children": [
+      {
+        "id": "accent",
+        "type": "panel",
+        "x": 32,
+        "y": 30,
+        "w": 4,
+        "h": 64,
+        "color": "#67C5C9",
+        "children": []
+      },
+      {
+        "id": "eyebrow",
+        "type": "label",
+        "x": 52,
+        "y": 30,
+        "w": 800,
+        "h": 24,
+        "text": "eyebrow",
+        "fontSize": 14,
+        "textColor": "#7CCED0"
+      },
+      {
+        "id": "title",
+        "type": "label",
+        "x": 50,
+        "y": 57,
+        "w": 900,
+        "h": 47,
+        "text": "title",
+        "fontSize": 32,
+        "textColor": "#F1F5F9"
+      },
+      {
+        "id": "alpha_copy",
+        "name": "Image fixture",
+        "type": "image",
+        "x": 1010,
+        "y": 20,
+        "w": 72,
+        "h": 86,
+        "source": "../images/rgba.png",
+        "fit": "contain",
+        "tint": "#FFFFFF",
+        "opacity": 1
+      },
+      {
+        "id": "scene_card",
+        "type": "panel",
+        "x": 32,
+        "y": 132,
+        "w": 684,
+        "h": 480,
+        "color": "#192633",
+        "children": [
+          {
+            "id": "scene_title",
+            "type": "label",
+            "x": 24,
+            "y": 20,
+            "w": 600,
+            "h": 32,
+            "text": "scene_title",
+            "fontSize": 21,
+            "textColor": "#ECF1F6"
+          },
+          {
+            "id": "scene_frame",
+            "type": "panel",
+            "x": 24,
+            "y": 68,
+            "w": 636,
+            "h": 272,
+            "color": "#0C141D",
+            "children": [
+              {
+                "id": "rgb_image",
+                "name": "Image fixture",
+                "type": "image",
+                "x": 0,
+                "y": 0,
+                "w": 636,
+                "h": 272,
+                "source": "../images/rgb.jpg",
+                "fit": "cover",
+                "tint": "#FFFFFF",
+                "opacity": 1
+              }
+            ]
+          },
+          {
+            "id": "scene_note",
+            "type": "label",
+            "x": 24,
+            "y": 350,
+            "w": 636,
+            "h": 26,
+            "text": "scene_note",
+            "fontSize": 15,
+            "textColor": "#A5B6C7"
+          },
+          {
+            "id": "contain",
+            "type": "button",
+            "x": 24,
+            "y": 390,
+            "w": 204,
+            "h": 40,
+            "text": "完整显示",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "rgb_image",
+              "property": "fit",
+              "value": "contain"
+            }
+          },
+          {
+            "id": "cover",
+            "type": "button",
+            "x": 240,
+            "y": 390,
+            "w": 204,
+            "h": 40,
+            "text": "填满裁切",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "rgb_image",
+              "property": "fit",
+              "value": "cover"
+            }
+          },
+          {
+            "id": "stretch",
+            "type": "button",
+            "x": 456,
+            "y": 390,
+            "w": 204,
+            "h": 40,
+            "text": "拉伸",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "rgb_image",
+              "property": "fit",
+              "value": "stretch"
+            }
+          },
+          {
+            "id": "scene_footer",
+            "type": "label",
+            "x": 24,
+            "y": 442,
+            "w": 636,
+            "h": 24,
+            "text": "scene_footer",
+            "fontSize": 14,
+            "textColor": "#7E94AA"
+          }
+        ]
+      },
+      {
+        "id": "icon_card",
+        "type": "panel",
+        "x": 740,
+        "y": 132,
+        "w": 348,
+        "h": 480,
+        "color": "#192633",
+        "children": [
+          {
+            "id": "icon_title",
+            "type": "label",
+            "x": 24,
+            "y": 20,
+            "w": 300,
+            "h": 32,
+            "text": "icon_title",
+            "fontSize": 21,
+            "textColor": "#ECF1F6"
+          },
+          {
+            "id": "icon_background",
+            "type": "panel",
+            "x": 24,
+            "y": 68,
+            "w": 300,
+            "h": 272,
+            "color": "#273D4B",
+            "children": [
+              {
+                "id": "icon_back_half",
+                "type": "panel",
+                "x": 150,
+                "y": 0,
+                "w": 150,
+                "h": 272,
+                "color": "#324A52",
+                "children": []
+              },
+              {
+                "id": "alpha_image",
+                "name": "Image fixture",
+                "type": "image",
+                "x": 28,
+                "y": 8,
+                "w": 244,
+                "h": 256,
+                "source": "../images/rgba.png",
+                "fit": "contain",
+                "tint": "#FFFFFF",
+                "opacity": 1
+              }
+            ]
+          },
+          {
+            "id": "opaque",
+            "type": "button",
+            "x": 24,
+            "y": 358,
+            "w": 144,
+            "h": 40,
+            "text": "100% 不透明",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "alpha_image",
+              "property": "opacity",
+              "value": 1
+            }
+          },
+          {
+            "id": "half",
+            "type": "button",
+            "x": 180,
+            "y": 358,
+            "w": 144,
+            "h": 40,
+            "text": "50% 不透明",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "alpha_image",
+              "property": "opacity",
+              "value": 0.5
+            }
+          },
+          {
+            "id": "white",
+            "type": "button",
+            "x": 24,
+            "y": 412,
+            "w": 144,
+            "h": 40,
+            "text": "原始颜色",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "alpha_image",
+              "property": "tint",
+              "value": "#FFFFFF"
+            }
+          },
+          {
+            "id": "tinted",
+            "type": "button",
+            "x": 180,
+            "y": 412,
+            "w": 144,
+            "h": 40,
+            "text": "暖色着色",
+            "fontSize": 16,
+            "color": "#283C50",
+            "textColor": "#E3EDF5",
+            "action": {
+              "op": "set",
+              "id": "alpha_image",
+              "property": "tint",
+              "value": "#FFD08A"
+            }
+          }
+        ]
+      },
+      {
+        "id": "footer",
+        "type": "label",
+        "x": 32,
+        "y": 638,
+        "w": 1056,
+        "h": 30,
+        "text": "footer",
+        "fontSize": 17,
+        "textColor": "#B6C9D6"
+      },
+      {
+        "id": "reload_hint",
+        "type": "label",
+        "x": 32,
+        "y": 674,
+        "w": 1056,
+        "h": 24,
+        "text": "reload_hint",
+        "fontSize": 14,
+        "textColor": "#7E94AA"
+      }
+    ]
+  }
+}

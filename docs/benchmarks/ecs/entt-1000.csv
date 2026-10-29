@@ -1,0 +1,8 @@
+backend,entities,workload,median_ms,p95_ms,p99_ms,checksum
+entt,1000,update,0.0008,0.0008,0.0009,122.1
+entt,1000,random_read,0.0027,0.0031,0.0032,5.566e+06
+entt,1000,churn_10pct,0.0026,0.0027,0.0027,11000
+entt,1000,spawn_destroy_10pct,0.0149,0.022,0.0876,11000
+entt,1000,hierarchy,0.0042,0.0042,0.0046,25806
+entt,1000,update_32_combinations,0.0007,0.0008,0.0008,364.1
+entt,1000,initial_load,0.1041,0.1041,0.1041,0

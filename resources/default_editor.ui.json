@@ -1,0 +1,110 @@
+{
+  "format": "gm.ui",
+  "version": 1,
+  "root": {
+    "id": "editor",
+    "name": "Editor",
+    "type": "panel",
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900,
+    "color": "#161C24",
+    "children": [
+      {
+        "id": "menu",
+        "name": "Menu",
+        "type": "menubar",
+        "dock": "menubar",
+        "x": 0,
+        "y": 0,
+        "w": 1440,
+        "h": 30,
+        "color": "#24262A",
+        "children": [
+          {
+            "id": "brand",
+            "name": "Brand",
+            "type": "label",
+            "x": 10,
+            "y": 4,
+            "w": 28,
+            "h": 20,
+            "text": "GM",
+            "textColor": "#B9C6DA",
+            "fontSize": 13
+          }
+        ]
+      },
+      {
+        "id": "main_toolbar",
+        "name": "Main Toolbar",
+        "type": "toolbar",
+        "dock": "toolbar",
+        "x": 0,
+        "y": 30,
+        "w": 1440,
+        "h": 36,
+        "color": "#242B34"
+      },
+      {
+        "id": "hierarchy",
+        "name": "Hierarchy",
+        "type": "tree",
+        "dock": "left-top",
+        "x": 0,
+        "y": 30,
+        "w": 220,
+        "h": 634,
+        "color": "#252D37",
+        "text": "场景"
+      },
+      {
+        "id": "files",
+        "name": "Files",
+        "type": "files",
+        "dock": "bottom",
+        "x": 0,
+        "y": 668,
+        "w": 1132,
+        "h": 210,
+        "color": "#252D37",
+        "text": "资源"
+      },
+      {
+        "id": "workspace",
+        "name": "Viewport",
+        "type": "viewport",
+        "dock": "center",
+        "x": 224,
+        "y": 30,
+        "w": 908,
+        "h": 634,
+        "color": "#171D25"
+      },
+      {
+        "id": "properties",
+        "name": "Inspector",
+        "type": "inspector",
+        "dock": "right",
+        "x": 1136,
+        "y": 30,
+        "w": 304,
+        "h": 848,
+        "color": "#252D37",
+        "text": "检查器"
+      },
+      {
+        "id": "statusbar",
+        "name": "Status",
+        "type": "status",
+        "dock": "status",
+        "x": 0,
+        "y": 878,
+        "w": 1440,
+        "h": 22,
+        "color": "#222428"
+      }
+    ]
+  }
+}

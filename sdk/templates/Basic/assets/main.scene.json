@@ -1,0 +1,9 @@
+{
+  "format":"gm.scene","version":1,"name":"New Game","width":1280,"height":720,"background":"#17212D",
+  "entities":[{"id":"player","name":"Player","parent":null,"components":[
+    {"type":"Transform2D","version":1,"fields":{"x":400,"y":300}},
+    {"type":"Velocity","version":1,"fields":{"x":0,"y":0}},
+    {"type":"SpriteRenderer","version":1,"fields":{"image":"","width":64,"height":64,"tint":"#7DB7E8","order":0}},
+    {"type":"game.Mover","version":1,"fields":{"speed":100}}
+  ]}]
+}

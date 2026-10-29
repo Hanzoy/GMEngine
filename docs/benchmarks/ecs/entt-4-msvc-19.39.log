@@ -1,0 +1,334 @@
+CMake is re-running because D:/Demo/GMEngine/build/CMakeFiles/generate.stamp is out-of-date.
+  the file 'D:/Demo/GMEngine/CMakeLists.txt'
+  is newer than 'D:/Demo/GMEngine/build/CMakeFiles/generate.stamp.depend'
+  result='-1'
+-- Selecting Windows SDK version 10.0.22621.0 to target Windows 10.0.26200.
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: D:/Demo/GMEngine/build
+适用于 .NET Framework MSBuild 版本 17.9.8+b34f75857
+
+  flecs.c
+  gm_flecs.vcxproj -> D:\Demo\GMEngine\build\Release\gm_flecs.lib
+  ecs_bench.cpp
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8310,50): warning C4346: "entt::internal::basic_hashed_string<Char>::value_type": 依赖名称不是类型 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8310,50):
+  用“typename”为前缀来表示类型
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8310,50):
+  模板实例化上下文(最早的实例化上下文)为
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8461,2):
+  	查看对正在编译的 类 模板 实例化“entt::basic_hashed_string<Char>”的引用
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8311,1):
+  	查看对正在编译的 类 模板 实例化“entt::basic_hashed_string<Char>::const_wrapper”的引用
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8310,50): error C2061: 语法错误: 标识符“value_type” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8313,1): warning C4346: "value_type": 依赖名称不是类型 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8313,1):
+  用“typename”为前缀来表示类型
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8313,26): error C2061: 语法错误: 标识符“value_type” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8313,42): error C2238: 意外的标记位于“;”之前 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8311,15): error C3861: “repr”: 找不到标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8311,20): error C3861: “str”: 找不到标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8311,15): error C2065: “repr”: 未声明的标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8311,20): error C2065: “str”: 未声明的标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8490,25): error C2440: “<function-style-cast>”: 无法从“initializer list”转换为“entt::hashed_string” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8490,25):
+  “entt::basic_hashed_string<char>::basic_hashed_string”: 没有重载函数可以转换所有参数类型
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8398,5):
+  	可能是“entt::basic_hashed_string<char>::basic_hashed_string(entt::basic_hashed_string<char>::const_wrapper) noexcept”
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(8490,25):
+  		“entt::basic_hashed_string<char>::basic_hashed_string(entt::basic_hashed_string<char>::const_wrapper) noexcept”: 无法将参数 1 从“const char *”转换为“entt::basic_hashed_string<char>::const_wrapper”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(8490,26):
+  			未定义类型 "entt::basic_hashed_string<char>::const_wrapper" 的使用
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(8308,1):
+  			参见“entt::basic_hashed_string<char>::const_wrapper”的声明
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8381,5):
+  	或    “entt::basic_hashed_string<char>::basic_hashed_string(const char (&)[N]) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8490,25):
+  	尝试匹配参数列表“(const char *)”时
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8489,44): error C3615: consteval 函数“entt::literals::operator ""_hs”不能生成常量表达式 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8489,44):
+  由于控制到达 consteval 函数的末尾，导致失败
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8499,26): error C2440: “<function-style-cast>”: 无法从“initializer list”转换为“entt::hashed_wstring” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8499,26):
+  “entt::basic_hashed_string<wchar_t>::basic_hashed_string”: 没有重载函数可以转换所有参数类型
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8398,5):
+  	可能是“entt::basic_hashed_string<wchar_t>::basic_hashed_string(entt::basic_hashed_string<wchar_t>::const_wrapper) noexcept”
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(8499,26):
+  		“entt::basic_hashed_string<wchar_t>::basic_hashed_string(entt::basic_hashed_string<wchar_t>::const_wrapper) noexcept”: 无法将参数 1 从“const wchar_t *”转换为“entt::basic_hashed_string<wchar_t>::const_wrapper”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(8499,27):
+  			未定义类型 "entt::basic_hashed_string<wchar_t>::const_wrapper" 的使用
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(8308,1):
+  			参见“entt::basic_hashed_string<wchar_t>::const_wrapper”的声明
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8381,5):
+  	或    “entt::basic_hashed_string<wchar_t>::basic_hashed_string(const wchar_t (&)[N]) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(8499,26):
+  	尝试匹配参数列表“(const wchar_t *)”时
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(8498,45): error C3615: consteval 函数“entt::literals::operator ""_hws”不能生成常量表达式 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(8498,45):
+  由于控制到达 consteval 函数的末尾，导致失败
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(25127,53): warning C4346: "std::iterator_traits<Type::const_iterator>::value_type": 依赖名称不是类型 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(25127,53):
+  用“typename”为前缀来表示类型
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(25127,53):
+  模板实例化上下文(最早的实例化上下文)为
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(25188,2):
+  	查看对正在编译的 类 模板 实例化“entt::internal::view_iterator<Type,Checked,Get,Exclude>”的引用
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(25127,53): error C2061: 语法错误: 标识符“value_type” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(25128,30): error C2882: “entt”: 在表达式中非法使用命名空间标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(25326,44): warning C4346: "Type::entity_type": 依赖名称不是类型 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(25326,44):
+  用“typename”为前缀来表示类型
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(25326,44):
+  模板实例化上下文(最早的实例化上下文)为
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(25453,2):
+  	查看对正在编译的 类 模板 实例化“entt::basic_common_view<Type,Checked,Get,Exclude>”的引用
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(25326,44): error C2061: 语法错误: 标识符“entity_type” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(29928,60): warning C4346: "entt::basic_sigh_mixin<Type,Registry>::entt::basic_sigh_mixin<Type,Registry>::underlying_type::entity_type": 依赖名称不是类型 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(29928,60):
+  用“typename”为前缀来表示类型
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(29928,60):
+  模板实例化上下文(最早的实例化上下文)为
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(30201,2):
+  	查看对正在编译的 类 模板 实例化“entt::basic_sigh_mixin<Type,Registry>”的引用
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(29928,60): error C2061: 语法错误: 标识符“entity_type” [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(29929,60): error C3861: “force_back”: 找不到标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(29929,72): error C3861: “value”: 找不到标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(29929,60): error C2065: “force_back”: 未声明的标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(29929,72): error C2065: “value”: 未声明的标识符 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78139,43): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78139,35):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78147,43): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78147,35):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78236,43): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78236,35):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78244,43): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78244,35):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78415,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78415,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78423,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78423,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78431,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78431,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78439,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78439,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78447,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78447,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78455,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78455,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78463,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78463,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78480,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78480,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78488,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78488,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(78496,39): error C2676: 二进制“&”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(78496,31):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(80526,51): error C2675: 一元“~”:“const entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10798,30):
+  可能是“Type operator ~(const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(80526,52):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10797,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(80525,54):
+  此诊断出现在编译器生成的函数“auto entt::internal::basic_meta_factory::traits::<lambda_1>::operator ()(_T1 &) const”中
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(80526,49): error C2676: 二进制“&”:“entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10780,30):
+  可能是“Type operator &(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(80526,41):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10779,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  
+D:\Demo\GMEngine\third_party\entt\entt.hpp(80526,74): error C2676: 二进制“|”:“entt::internal::meta_traits”不定义该运算符或到预定义运算符可接收的类型的转换 [D:\Demo\GMEngine\build\gm_ecs_bench.vcxproj]
+  (编译源文件“../tests/perf/ecs_bench.cpp”)
+  D:\Demo\GMEngine\third_party\entt\entt.hpp(10774,30):
+  可能是“Type operator |(const Type,const Type) noexcept”
+  	D:\Demo\GMEngine\third_party\entt\entt.hpp(80526,66):
+  	未满足关联约束
+  		D:\Demo\GMEngine\third_party\entt\entt.hpp(10773,10):
+  		计算结果为 false 的概念“entt::enum_bitmask<entt::internal::meta_traits>”
+  			D:\Demo\GMEngine\third_party\entt\entt.hpp(10761,48):
+  			未满足约束
+  

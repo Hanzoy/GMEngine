@@ -1,0 +1,38 @@
+{
+  "format": "gm.ui",
+  "version": 1,
+  "root": {
+    "id": "editor",
+    "type": "panel",
+    "x": 0, "y": 0, "w": 1440, "h": 900,
+    "color": "#0B1018",
+    "children": [
+      {
+        "id": "header", "type": "panel", "x": 0, "y": 0, "w": 1440, "h": 64, "color": "#101824",
+        "children": [
+          {"id": "logo", "type": "button", "x": 20, "y": 14, "w": 38, "h": 36, "color": "#68D9BE", "textColor": "#10271F", "text": "G", "fontSize": 22, "action": {"op": "select", "id": "editor"}},
+          {"id": "brand", "type": "label", "x": 72, "y": 18, "w": 240, "h": 32, "text": "GM ENGINE", "textColor": "#EDF2F8", "fontSize": 22},
+          {"id": "project_label", "type": "label", "x": 280, "y": 23, "w": 560, "h": 28, "text": "编辑器项目  /  editor.ui.json", "textColor": "#8293AB", "fontSize": 14},
+          {"id": "version", "type": "label", "x": 1180, "y": 23, "w": 240, "h": 28, "text": "SELF-HOSTING LAB  /  0.1", "textColor": "#68D9BE", "fontSize": 13}
+        ]
+      },
+      {
+        "id": "toolbar", "type": "panel", "x": 0, "y": 64, "w": 1440, "h": 52, "color": "#121C29",
+        "children": [
+          {"id": "save_button", "type": "button", "x": 20, "y": 10, "w": 108, "h": 32, "color": "#233246", "text": "保存  Ctrl+S", "fontSize": 13, "action": {"op": "save"}},
+          {"id": "undo_button", "type": "button", "x": 140, "y": 10, "w": 76, "h": 32, "color": "#1B2839", "text": "撤销", "action": {"op": "undo"}},
+          {"id": "redo_button", "type": "button", "x": 224, "y": 10, "w": 76, "h": 32, "color": "#1B2839", "text": "重做", "action": {"op": "redo"}},
+          {"id": "add_button", "type": "button", "x": 324, "y": 10, "w": 126, "h": 32, "color": "#1B2839", "text": "+ 添加按钮", "action": {"op": "add-button"}},
+          {"id": "reload_button", "type": "button", "x": 462, "y": 10, "w": 108, "h": 32, "color": "#1B2839", "text": "重新加载", "action": {"op": "reload"}},
+          {"id": "apply_button", "type": "button", "x": 1158, "y": 10, "w": 164, "h": 32, "color": "#68D9BE", "textColor": "#10271F", "text": "应用到编辑器  F5", "fontSize": 13, "action": {"op": "apply"}},
+          {"id": "recover_button", "type": "button", "x": 1330, "y": 10, "w": 90, "h": 32, "color": "#263246", "text": "恢复  F6", "fontSize": 13, "action": {"op": "recover"}}
+        ]
+      },
+      {"id": "hierarchy", "type": "tree", "x": 16, "y": 132, "w": 240, "h": 526, "color": "#121B28", "text": "界面层级"},
+      {"id": "workspace", "type": "viewport", "x": 272, "y": 132, "w": 864, "h": 526, "color": "#101823", "text": "编辑器自身预览"},
+      {"id": "properties", "type": "inspector", "x": 1152, "y": 132, "w": 272, "h": 704, "color": "#121B28", "text": "属性检查器"},
+      {"id": "activity", "type": "history", "x": 16, "y": 674, "w": 1120, "h": 162, "color": "#121B28", "text": "操作记录  /  HUMAN + AGENT"},
+      {"id": "statusbar", "type": "status", "x": 0, "y": 852, "w": 1440, "h": 48, "color": "#101824", "text": "C++  /  bgfx · D3D11"}
+    ]
+  }
+}

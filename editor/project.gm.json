@@ -1,0 +1,6 @@
+{
+  "name": "GM Editor",
+  "version": 1,
+  "entry": "editor.ui.json",
+  "description": "The editor's own UI is the document being edited."
+}
