@@ -12,7 +12,7 @@ std::string utf8(const std::wstring& text);
 class Renderer {
 public:
     struct Stats {uint32_t quads=0,drawCalls=0,textUploads=0,imageUploads=0;};
-    Renderer(void* window, uint32_t width, uint32_t height);
+    Renderer(void* window, uint32_t width, uint32_t height, bgfx::CallbackI* callback=nullptr);
     ~Renderer();
     void begin(uint32_t width, uint32_t height);
     void end();

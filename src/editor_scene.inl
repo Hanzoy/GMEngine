@@ -4,7 +4,7 @@ std::string rootId() const {return sceneMode()?std::string():doc_.data()["root"]
 const Json* selectedNode() const {return sceneMode()?gm::findEntity(doc_.data(),doc_.selected()):gm::findNode(doc_.data()["root"],doc_.selected());}
 bool playing() const {return scenePlay_!=nullptr||previewProcess_!=nullptr;}
 gm::Transform2D sceneLocalDelta(float x,float y)const{std::vector<const Json*> parents;auto* e=gm::findEntity(doc_.data(),dragId_);while(e&&!e->at("parent").is_null()){e=gm::findEntity(doc_.data(),e->at("parent").get<std::string>());if(e)parents.push_back(e);}for(auto it=parents.rbegin();it!=parents.rend();++it)if(auto* pose=gm::findComponent(**it,"Pose2D")){auto& f=pose->at("fields");float angle=f["rotation"].get<float>()*.01745329252f,c=std::cos(angle),s=std::sin(angle),nextX=(c*x+s*y)/f["scaleX"].get<float>();y=(-s*x+c*y)/f["scaleY"].get<float>();x=nextX;}return {x,y};}
-void setGameFocus(bool focused){if(focused==gameFocus_)return;gameFocus_=focused;ImmAssociateContextEx(window_,nullptr,focused?0:IACE_DEFAULT);}
+void setGameFocus(bool focused){if(focused==gameFocus_)return;gameFocus_=focused;if(!focused)gameInput_.clear();ImmAssociateContextEx(window_,nullptr,focused?0:IACE_DEFAULT);}
 void drawMainToolbar(Rect r) {
     renderer_->rect(r,C("#242B34"));renderer_->rect({r.x,r.y+r.h-1,r.w,1},C("#11151B"));
     text(r.x+14*scale_,r.y+10*scale_,gameProject_.valid()?gameProject_.name:sceneMode()?"场景工作区":"UI 工作区",12,C("#A5B7CC"),220*scale_);
@@ -28,7 +28,7 @@ Json sceneRuntimeState() {
 void updateScenePlay() {
     auto now=std::chrono::steady_clock::now();float dt=std::chrono::duration<float>(now-lastSceneTick_).count();lastSceneTick_=now;
     if(!scenePlay_)return;auto requestedScene=scenePlay_->takeSceneRequest();if(!requestedScene.empty()){command({{"op","runtime.scene.switch"},{"scene",requestedScene}});dt=0;}if(!scenePaused_&&GetForegroundWindow()==window_&&!IsIconic(window_)){
-        gm::SceneInput input;if(gameFocus_&&sceneGameView_&&!edit_){auto down=[](int k){return (GetAsyncKeyState(k)&0x8000)!=0;};input={float(down('D')||down(VK_RIGHT))-float(down('A')||down(VK_LEFT)),float(down('S')||down(VK_DOWN))-float(down('W')||down(VK_UP))};if(input.x==0)input.x=pendingSceneInput_.x;if(input.y==0)input.y=pendingSceneInput_.y;}pendingSceneInput_={};try{scenePlay_->advance(dt,input);}catch(const std::exception& error){scenePaused_=true;error_=true;++errorCount_;message_=error.what();logs_.push_back(message_);}requestFrame();
+        gm::SceneInput input;if(gameFocus_&&sceneGameView_&&!edit_){auto down=[](int k){return (GetAsyncKeyState(k)&0x8000)!=0;};input={float(down('D')||down(VK_RIGHT))-float(down('A')||down(VK_LEFT)),float(down('S')||down(VK_DOWN))-float(down('W')||down(VK_UP))};if(input.x==0)input.x=pendingSceneInput_.x;if(input.y==0)input.y=pendingSceneInput_.y;}input.pointer=gameInput_.sample(window_,canvasArea_,scenePlay_->asset().width,scenePlay_->asset().height,gameFocus_&&sceneGameView_&&!edit_);pendingSceneInput_={};try{scenePlay_->advance(dt,input);}catch(const std::exception& error){scenePaused_=true;error_=true;++errorCount_;message_=error.what();logs_.push_back(message_);}requestFrame();
     }
 }
 void sceneMenu(const std::string& name) {

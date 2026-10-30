@@ -43,6 +43,7 @@ CompiledScene loadScene(const std::filesystem::path &path);
 void saveScene(const std::filesystem::path &path, const CompiledScene &scene);
 struct SceneInput {
     float x = 0, y = 0;
+    sdk::Input pointer{};
 };
 struct SceneSprite {
     uint32_t entity;
@@ -109,6 +110,7 @@ class SceneRuntime {
     const std::vector<SceneSprite> &sprites() const {
         return sprites_;
     }
+    const std::vector<sdk::CanvasCommand> &canvas() const;
     RuntimeDocument &hud() {
         return *hud_;
     }
@@ -122,6 +124,7 @@ class SceneRuntime {
     std::vector<SceneSprite> sprites_;
     std::vector<uint32_t> spriteRows_;
     FixedStep clock_;
+    SceneInput pendingInput_{};
     double simulationMs_ = 0;
     uint64_t spriteRevision_ = 0;
     struct BoundValue {

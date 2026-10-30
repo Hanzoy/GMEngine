@@ -8,6 +8,7 @@
 #include "editor_default.hpp"
 #include "scene_compiler.hpp"
 #include "scene_view.hpp"
+#include "windows_game_input.hpp"
 #include "project.hpp"
 #include "project_tasks.hpp"
 #include <functional>
@@ -197,11 +198,14 @@ public:
         auto title=gm::wide(pathText(doc_.path().filename())+(doc_.dirty()?" *":"")+" — GM Engine");
         if(title!=lastTitle_) { SetWindowTextW(window_,title.c_str());lastTitle_=title; }
     }
+    void gameKey(uint32_t key,bool repeat){if(gameFocus_)gameInput_.key(key,repeat);}
+    bool gameRight(bool down){if(gameFocus_)gameInput_.button(2,down);return gameFocus_;}
+    void gameBlur(){gameInput_.clear();}
     void mouseDown(float x,float y,bool doubleClick=false,bool middle=false) {
         requestFrame();
         mouseX_=x;mouseY_=y;
         setGameFocus(scenePlay_&&sceneGameView_&&canvasArea_.contains(x,y));
-        if(gameFocus_){scenePressed_=sceneView_->hitUi(*scenePlay_,x,y);if(scenePressed_!=gm::NoIndex)SetCapture(window_);return;}
+        if(gameFocus_){gameInput_.button(middle?4:1,true);SetCapture(window_);scenePressed_=sceneView_->hitUi(*scenePlay_,x,y);if(scenePressed_!=gm::NoIndex)SetCapture(window_);return;}
         if(middle && canvasArea_.contains(x,y)) { if(!commit()) return; dragMode_="pan";startX_=x;startY_=y;oldPanX_=panX_;oldPanY_=panY_;SetCapture(window_);return; }
         for(auto& [name,r]:splitters()) if(r.contains(x,y)) { if(!commit()) return;dragMode_=name;SetCapture(window_);return; }
         for(auto it=fields_.rbegin();it!=fields_.rend();++it) if(it->rect.contains(x,y)) {
@@ -246,6 +250,7 @@ public:
         setCursor();
     }
     void mouseUp() {
+        if(gameFocus_){gameInput_.button(1,false);gameInput_.button(4,false);}
         requestFrame();
         if(scenePlay_&&scenePressed_!=gm::NoIndex){auto node=scenePressed_;scenePressed_=gm::NoIndex;ReleaseCapture();if(sceneView_->hitUi(*scenePlay_,mouseX_,mouseY_)==node)command({{"op","runtime.activate"},{"node",node}});return;}
         const auto mode=dragMode_;dragMode_.clear();ReleaseCapture();
@@ -258,6 +263,7 @@ public:
         if(mode=="left" || mode=="right" || mode=="tree" || mode=="output") saveWorkspace();
     }
     void wheel(int delta,float x,float y) {
+        if(gameFocus_&&canvasArea_.contains(x,y))gameInput_.wheel(float(delta)/120.f);
         requestFrame();
         if(canvasArea_.contains(x,y)) {if(!scenePlay_)zoomAt(x,y,delta>0?1.12f:1/1.12f);}
         else if(px(layout_.regions["left-top"]).contains(x,y)) treeScroll_=std::max(0,treeScroll_+(delta>0?-3:3));
@@ -362,7 +368,7 @@ public:
         }
         if(canvasArea_.contains(x,y)) {for(auto it=nodes_.rbegin();it!=nodes_.rend();++it) if(it->rect.contains(x,y)) {command({{"op","select"},{"id",it->id}});break;}showMenu("node");}
     }
-    void captureLost() { dragMode_.clear(); }
+    void captureLost() { dragMode_.clear();gameInput_.cancelButtons(); }
 private:
     #include "editor_tasks.inl"
     #include "editor_project.inl"
@@ -916,6 +922,7 @@ private:
     std::unique_ptr<gm::SceneRuntime> scenePlay_;std::unique_ptr<gm::SceneView> sceneView_;
     bool scenePaused_=false,sceneGameView_=false,gameFocus_=false;uint32_t scenePressed_=gm::NoIndex;
     gm::SceneInput pendingSceneInput_{};
+    gm::WindowsGameInput gameInput_;
     std::chrono::steady_clock::time_point lastSceneTick_=std::chrono::steady_clock::now();
     std::vector<Hit> hits_;std::vector<Field> fields_;std::vector<NodeHit> nodes_;std::vector<FileItem> files_;std::vector<std::string> logs_;
     std::optional<Edit> edit_;std::set<std::string> collapsed_,groups_;
@@ -936,14 +943,16 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wp,LPARAM lp) {
         if(app) switch(message) {
             case WM_SIZE:app->requestFrame();break;
             case WM_PAINT: {PAINTSTRUCT paint;BeginPaint(window,&paint);EndPaint(window,&paint);app->requestFrame();return 0;}
-            case WM_RBUTTONUP:app->context(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
+            case WM_RBUTTONUP:if(!app->gameRight(false))app->context(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
             case WM_LBUTTONDOWN:case WM_LBUTTONDBLCLK: SetFocus(window);app->mouseDown(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)),message==WM_LBUTTONDBLCLK);return 0;
             case WM_MBUTTONDOWN: SetFocus(window);app->mouseDown(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)),false,true);return 0;
+            case WM_RBUTTONDOWN:app->gameRight(true);return 0;
+            case WM_KILLFOCUS:app->gameBlur();break;
             case WM_MOUSEMOVE:app->mouseMove(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
             case WM_LBUTTONUP:case WM_MBUTTONUP:app->mouseUp();return 0;
             case WM_CAPTURECHANGED:app->captureLost();return 0;
             case WM_MOUSEWHEEL: {POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(window,&p);app->wheel(GET_WHEEL_DELTA_WPARAM(wp),float(p.x),float(p.y));return 0;}
-            case WM_KEYDOWN:app->key(wp);return 0;
+            case WM_KEYDOWN:app->gameKey(uint32_t(wp),(lp & (1ll<<30))!=0);app->key(wp);return 0;
             case WM_CHAR:app->input(wchar_t(wp));return 0;
             case WM_IME_COMPOSITION:
                 if(lp&GCS_RESULTSTR) {

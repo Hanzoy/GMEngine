@@ -7,7 +7,7 @@
 // Native module boundary: no STL ownership, JSON, engine classes, or Flecs types.
 // All descriptors and strings remain owned by the module until it is unloaded.
 namespace gm::sdk {
-inline constexpr uint32_t AbiVersion = 8;
+inline constexpr uint32_t AbiVersion = 9;
 using TypeId = uint64_t;
 using Entity = uint64_t;
 constexpr TypeId id(const char *text) {
@@ -48,9 +48,29 @@ struct Batch {
     void *const *columns;
     const uint32_t *strides;
 };
+// Logical scene coordinates (letterboxing removed). Button bits: left=1, right=2, middle=4.
+// Key codes use the Windows virtual-key values for this Windows backend.
+// Edges and wheel are delivered once, including when a render frame has no simulation step.
+struct Input {
+    float mouseX = -1, mouseY = -1, wheel = 0;
+    uint32_t buttons = 0, pressed = 0, released = 0, focused = 0;
+    uint32_t keys[8]{}, keyPress[8]{};
+    bool held(uint32_t key) const { return key < 256 && (keys[key / 32] & (1u << (key % 32))); }
+    bool hit(uint32_t key) const { return key < 256 && (keyPress[key / 32] & (1u << (key % 32))); }
+};
+enum class CanvasKind : uint32_t { Rect, Border, Line, Text, Clip, ResetClip };
+// Transient design-space drawing. Commands/text are copied by the host, cleared each tick,
+// and replayed above sprites, below the authored HUD. No GPU pointers cross the ABI.
+struct CanvasCommand {
+    CanvasKind kind = CanvasKind::Rect;
+    float x = 0, y = 0, w = 0, h = 0, size = 1;
+    uint32_t color = 0xffffffff;
+    char text[256]{};
+};
 struct Frame {
     float dt, inputX, inputY, width, height;
     uint64_t tick;
+    Input input{};
 };
 // Structural writes are copied and committed after the current System returns.
 // Component pointers are only valid until that boundary. Events are visible next tick.
@@ -75,6 +95,7 @@ struct Api {
     void (*emit)(void *world, const Event *event);
     void (*events)(void *world, TypeId type, void *user, void (*visit)(void *, const Event *));
     void (*switchScene)(void *world, const char *id);
+    void (*draw)(void *world, const CanvasCommand *command);
 };
 struct Context {
     void *world;
@@ -110,6 +131,7 @@ struct Context {
     void switchScene(const char *id) const {
         api->switchScene(world, id);
     }
+    void draw(const CanvasCommand &command) const { api->draw(world, &command); }
     template <class Fn> void events(TypeId type, Fn &&fn) const {
         using F = std::remove_reference_t<Fn>;
         api->events(world, type, &fn,

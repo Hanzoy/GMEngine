@@ -1,4 +1,6 @@
-# GM Engine 0.8.2
+# GM Engine 0.8.3
+
+当前 SDK 为 ABI 9，旧游戏模块需重新编译。新增 Frame::input（设计坐标键鼠快照）、Context::draw（有界 Canvas 命令）、runtime.input / runtime.canvas；Player 在后台继续模拟，最小化时不渲染。0.8.2 的 ABI 8 描述属于下方历史记录。
 
 双击 `bin/gm_editor.exe` 打开项目选择器。可以新建项目、打开 `.gmproject`，或继续最近项目。“编辑器界面工程”用于编辑编辑器自身 UI。
 

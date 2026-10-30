@@ -71,13 +71,14 @@ struct SceneRuntime::Impl {
     std::vector<Body> bodies;
     std::set<std::pair<sdk::Entity, sdk::Entity>> contacts;
     sdk::Frame frame{};
+    std::vector<sdk::CanvasCommand> canvas;
     size_t imageCount = 0;
     bool structureDirty = true;
     uint64_t structureRevision = 0;
     std::string requestedScene;
     static const sdk::Api &api() {
         static const sdk::Api value{sdk::AbiVersion, each,  get,  getMut, create, destroy,    set,
-                                    remove,          alive, find, emit,   events, switchScene};
+                                    remove,          alive, find, emit,   events, switchScene, draw};
         return value;
     }
     sdk::Context context() {
@@ -199,6 +200,17 @@ struct SceneRuntime::Impl {
         if (!id || !*id || std::strlen(id) > 128)
             throw std::runtime_error("Invalid scene ID/name");
         static_cast<Impl *>(ptr)->requestedScene = id;
+    }
+    static void draw(void *ptr, const sdk::CanvasCommand *command) {
+        if (!command || uint32_t(command->kind) > uint32_t(sdk::CanvasKind::ResetClip) ||
+            !std::isfinite(command->x) || !std::isfinite(command->y) ||
+            !std::isfinite(command->w) || !std::isfinite(command->h) ||
+            !std::isfinite(command->size) || command->size < 0 ||
+            !std::memchr(command->text, 0, sizeof(command->text)))
+            throw std::runtime_error("Invalid canvas command");
+        auto &commands = static_cast<Impl *>(ptr)->canvas;
+        if (commands.size() >= 65536) throw std::runtime_error("Canvas command limit exceeded");
+        commands.push_back(*command);
     }
     void validate(sdk::TypeId type, std::span<const uint32_t> fields) {
         registry->validate(type, fields);
@@ -554,6 +566,7 @@ void SceneRuntime::reset() {
     impl_ = std::move(next);
     hud_ = std::move(hud);
     clock_.reset();
+    pendingInput_ = {};
     sprites_.clear();
     spriteRows_.clear();
     bound_.assign(asset_.bindings.size(), BoundValue{});
@@ -571,15 +584,27 @@ void SceneRuntime::restore(CompiledScene scene) {
     impl_ = std::move(next);
     hud_ = std::move(hud);
     clock_.reset();
+    pendingInput_ = {};
     bound_.assign(asset_.bindings.size(), BoundValue{});
     extract();
     syncUi();
 }
 uint32_t SceneRuntime::advance(double elapsed, SceneInput input) {
-    return clock_.advance(elapsed, [&](float dt) { tick(dt, input); });
+    auto edges = pendingInput_.pointer;
+    pendingInput_ = input;
+    auto &p = pendingInput_.pointer;
+    p.pressed |= edges.pressed; p.released |= edges.released; p.wheel += edges.wheel;
+    for (int i = 0; i < 8; ++i) p.keyPress[i] |= edges.keyPress[i];
+    return clock_.advance(elapsed, [&](float dt) {
+        tick(dt, pendingInput_);
+        p.pressed = p.released = 0; p.wheel = 0;
+        for (auto &key : p.keyPress) key = 0;
+    });
 }
+const std::vector<sdk::CanvasCommand> &SceneRuntime::canvas() const { return impl_->canvas; }
 void SceneRuntime::tick(float dt, SceneInput input) {
-    if (!std::isfinite(dt) || dt < 0 || !std::isfinite(input.x) || !std::isfinite(input.y))
+    if (!std::isfinite(dt) || dt < 0 || !std::isfinite(input.x) || !std::isfinite(input.y) ||
+        !std::isfinite(input.pointer.mouseX) || !std::isfinite(input.pointer.mouseY) || !std::isfinite(input.pointer.wheel))
         throw std::runtime_error("Invalid simulation input");
     auto start = Clock::now();
     dt = std::min(dt, .1f);
@@ -593,6 +618,8 @@ void SceneRuntime::tick(float dt, SceneInput input) {
     impl_->frame.dt = dt;
     impl_->frame.inputX = input.x;
     impl_->frame.inputY = input.y;
+    impl_->frame.input = input.pointer;
+    impl_->canvas.clear();
     ++impl_->frame.tick;
     impl_->phase(sdk::Phase::Input);
     impl_->phase(sdk::Phase::Simulation);

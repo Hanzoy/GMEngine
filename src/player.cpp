@@ -1,6 +1,7 @@
 #include "runtime_view.hpp"
 #include "scene_view.hpp"
 #include "scene_catalog.hpp"
+#include "windows_game_input.hpp"
 #include <chrono>
 #include <windows.h>
 #include <windowsx.h>
@@ -18,9 +19,13 @@ public:
         auto catalog=path.parent_path()/"scenes.gmcatalog";if(scene_&&std::filesystem::exists(catalog))loader_=std::make_unique<gm::SceneLoader>(catalog);
     }
     ~Player(){sceneView_.reset();view_.clear(*renderer_);}
-    bool needsFrame() const {return (redraw_||(scene_&&GetForegroundWindow()==window_)) && !IsIconic(window_);}
-    DWORD waitTime() const {return scene_?16:INFINITE;}
+    bool needsFrame() const {return scene_||(redraw_&&!IsIconic(window_));}
+    DWORD waitTime() const {return scene_?(GetForegroundWindow()==window_&&!IsIconic(window_)?16:100):INFINITE;}
     void requestFrame() {redraw_=true;}
+    void inputKey(WPARAM key, bool repeat){gameInput_.key(uint32_t(key),repeat);}
+    void inputButton(uint32_t bit,bool down){gameInput_.button(bit,down);if(down)SetCapture(window_);else if(bit!=1&&!(GetAsyncKeyState(VK_LBUTTON)&0x8000)&&!(GetAsyncKeyState(VK_MBUTTON)&0x8000)&&!(GetAsyncKeyState(VK_RBUTTON)&0x8000))ReleaseCapture();}
+    void inputWheel(float amount){gameInput_.wheel(amount);}
+    void loseFocus(){gameInput_.clear();}
     void key(WPARAM key){if(!scene_)return;if(key=='D'||key==VK_RIGHT)pending_.x=1;if(key=='A'||key==VK_LEFT)pending_.x=-1;if(key=='S'||key==VK_DOWN)pending_.y=1;if(key=='W'||key==VK_UP)pending_.y=-1;}
     void frame() {
         if(scene_)try{
@@ -35,10 +40,17 @@ public:
             if(lastLoadError_!=error.what()){lastLoadError_=error.what();MessageBoxW(window_,gm::wide(lastLoadError_).c_str(),L"Scene load failed",MB_OK|MB_ICONERROR);}
             lastTick_=std::chrono::steady_clock::now();
         }
-        RECT area;GetClientRect(window_,&area);if(area.right<1 || area.bottom<1) return;
-        if(scene_){auto now=std::chrono::steady_clock::now();float dt=std::chrono::duration<float>(now-lastTick_).count();lastTick_=now;gm::SceneInput input;
-            if(GetForegroundWindow()==window_){auto held=[](int k){return (GetAsyncKeyState(k)&0x8000)!=0;};input={float(held('D')||held(VK_RIGHT))-float(held('A')||held(VK_LEFT)),float(held('S')||held(VK_DOWN))-float(held('W')||held(VK_UP))};if(input.x==0)input.x=pending_.x;if(input.y==0)input.y=pending_.y;pending_={};scene_->advance(dt,input);}
-            renderer_->begin(area.right,area.bottom);sceneView_->render(*scene_,{0,0,float(area.right),float(area.bottom)});renderer_->end();redraw_=false;return;}
+        RECT area;GetClientRect(window_,&area);
+        if(scene_){
+            auto now=std::chrono::steady_clock::now();float dt=std::chrono::duration<float>(now-lastTick_).count();lastTick_=now;
+            gm::SceneInput input;bool focused=GetForegroundWindow()==window_&&!IsIconic(window_);
+            if(focused){auto held=[](int k){return (GetAsyncKeyState(k)&0x8000)!=0;};input.x=float(held('D')||held(VK_RIGHT))-float(held('A')||held(VK_LEFT));input.y=float(held('S')||held(VK_DOWN))-float(held('W')||held(VK_UP));if(input.x==0)input.x=pending_.x;if(input.y==0)input.y=pending_.y;}
+            pending_={};input.pointer=gameInput_.sample(window_,{0,0,float(area.right),float(area.bottom)},scene_->asset().width,scene_->asset().height,focused);
+            scene_->advance(dt,input);
+            if(area.right>0&&area.bottom>0&&!IsIconic(window_)){renderer_->begin(area.right,area.bottom);sceneView_->render(*scene_,{0,0,float(area.right),float(area.bottom)});renderer_->end();}
+            redraw_=false;return;
+        }
+        if(area.right<1||area.bottom<1||IsIconic(window_))return;
         renderer_->begin(area.right,area.bottom);view_.render(*renderer_,*document_,float(area.right),float(area.bottom));
         const auto hovered=view_.layout.hit(mouseX_,mouseY_);
         if(hovered!=gm::NoIndex) renderer_->border(view_.layout.clips()[hovered],gm::color(pressed_==hovered?"#FFFFFF":"#AFC9FF"),2);
@@ -64,7 +76,7 @@ public:
         TRACKMOUSEEVENT tracking{sizeof(TRACKMOUSEEVENT),TME_LEAVE,window_,0};TrackMouseEvent(&tracking);
     }
     void leave() {mouseX_=mouseY_=-1;requestFrame();}
-    void cancel() {pressed_=gm::NoIndex;requestFrame();}
+    void cancel() {pressed_=gm::NoIndex;gameInput_.cancelButtons();requestFrame();}
     void reload() {if(scene_){auto next=std::make_unique<gm::SceneRuntime>(gm::loadScene(path_));sceneView_->clear();scene_=std::move(next);lastTick_=std::chrono::steady_clock::now();}else document_->reload();cancel();ReleaseCapture();requestFrame();}
 private:
     void updateLayout() {RECT area;GetClientRect(window_,&area);if(area.right>0 && area.bottom>0) view_.layout.update(*document_,float(area.right),float(area.bottom));}
@@ -75,6 +87,7 @@ private:
     std::string lastLoadError_;
     std::chrono::steady_clock::time_point lastTick_=std::chrono::steady_clock::now();
     gm::SceneInput pending_{};
+    gm::WindowsGameInput gameInput_;
     uint32_t pressed_=gm::NoIndex;float mouseX_=-1,mouseY_=-1;bool redraw_=true;
 };
 Player* player=nullptr;
@@ -84,12 +97,16 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wp,LPARAM lp) {
         if(message==WM_PAINT) {PAINTSTRUCT paint;BeginPaint(window,&paint);EndPaint(window,&paint);if(player) player->requestFrame();return 0;}
         if(player) switch(message) {
             case WM_SIZE:player->requestFrame();return 0;
-            case WM_LBUTTONDOWN:SetFocus(window);player->down(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
-            case WM_LBUTTONUP:player->up(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
+            case WM_LBUTTONDOWN:player->inputButton(1,true);SetFocus(window);player->down(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
+            case WM_LBUTTONUP:player->inputButton(1,false);player->up(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
             case WM_MOUSEMOVE:player->move(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
             case WM_MOUSELEAVE:player->leave();return 0;
+            case WM_RBUTTONDOWN:case WM_MBUTTONDOWN:player->inputButton(message==WM_RBUTTONDOWN?2:4,true);return 0;
+            case WM_RBUTTONUP:case WM_MBUTTONUP:player->inputButton(message==WM_RBUTTONUP?2:4,false);return 0;
+            case WM_MOUSEWHEEL:player->inputWheel(float(GET_WHEEL_DELTA_WPARAM(wp))/120.f);return 0;
+            case WM_KILLFOCUS:player->loseFocus();return 0;
             case WM_CAPTURECHANGED:player->cancel();return 0;
-            case WM_KEYDOWN:if(wp==VK_F5) {player->reload();return 0;}player->key(wp);break;
+            case WM_KEYDOWN:player->inputKey(wp,(lp & (1ll<<30))!=0);if(wp==VK_F5) {player->reload();return 0;}player->key(wp);break;
         }
         if(message==WM_ERASEBKGND) return 1;
         if(message==WM_DESTROY) {PostQuitMessage(0);return 0;}
@@ -122,7 +139,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int) {
         WNDCLASSW cls{};cls.lpfnWndProc=windowProc;cls.hInstance=instance;cls.lpszClassName=L"GMEnginePlayer";
         cls.hCursor=LoadCursor(nullptr,IDC_ARROW);cls.hIcon=LoadIcon(nullptr,IDI_APPLICATION);
         if(!RegisterClassW(&cls)) throw std::runtime_error("Cannot register player window");
-        RECT bounds{0,0,960,600};AdjustWindowRect(&bounds,WS_OVERLAPPEDWINDOW,FALSE);
+        RECT work;SystemParametersInfoW(SPI_GETWORKAREA,0,&work,0);int desiredWidth=1280,desiredHeight=720;if(project.extension()==".gmscene"){auto asset=gm::loadScene(project);float fit=std::min(1.f,std::min(float(work.right-work.left-64)/asset.width,float(work.bottom-work.top-80)/asset.height));desiredWidth=int(asset.width*fit);desiredHeight=int(asset.height*fit);}
+        RECT bounds{0,0,desiredWidth,desiredHeight};AdjustWindowRect(&bounds,WS_OVERLAPPEDWINDOW,FALSE);
         const auto title=project.filename().wstring()+L" — GM Engine Player";
         HWND window=CreateWindowExW(0,cls.lpszClassName,title.c_str(),WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,bounds.right-bounds.left,bounds.bottom-bounds.top,nullptr,nullptr,instance,nullptr);
         if(!window) throw std::runtime_error("Cannot create player window");

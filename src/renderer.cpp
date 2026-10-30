@@ -30,8 +30,9 @@ std::string utf8(const std::wstring& text) {
     int n=WideCharToMultiByte(CP_UTF8,0,text.data(),int(text.size()),nullptr,0,nullptr,nullptr);
     std::string out(n,'\0'); WideCharToMultiByte(CP_UTF8,0,text.data(),int(text.size()),out.data(),n,nullptr,nullptr); return out;
 }
-Renderer::Renderer(void* window,uint32_t width,uint32_t height):width_(width),height_(height) {
+Renderer::Renderer(void* window,uint32_t width,uint32_t height,bgfx::CallbackI* callback):width_(width),height_(height) {
     bgfx::Init init; init.type=bgfx::RendererType::Direct3D11;
+    init.callback=callback;
     init.swapChain.nwh=window; init.swapChain.width=width; init.swapChain.height=height; init.reset=BGFX_RESET_VSYNC;
     if(!bgfx::init(init)) throw std::runtime_error("bgfx D3D11 initialization failed");
     layout_.begin().add(bgfx::Attrib::Position,2,bgfx::AttribType::Float).add(bgfx::Attrib::TexCoord0,2,bgfx::AttribType::Float).add(bgfx::Attrib::Color0,4,bgfx::AttribType::Uint8,true).end();

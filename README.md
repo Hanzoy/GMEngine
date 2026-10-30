@@ -1,10 +1,12 @@
-# GM Engine 0.8.2
+# GM Engine 0.8.3（开发版）
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
 
+0.8.3 在原生工厂游戏制作过程中增加了 ABI 9 键鼠输入、动态 Canvas、CLI 输入注入和场景截图工具，并修复 Player 后台停摆。已有 ABI 8 模块需要重编译。本次隔离安装在 `D:\Demo\GMEngineBuild\dsp-sdk`，未覆盖原 `GMEngineApp`。可玩项目为 `D:\Demo\GMEngineGame\projects\DSPNative`。制作过程、测试证据和 17 项引擎问题见 [DSP 复刻与引擎改进报告](docs/dsp-reproduction-engine-notes.md)，接口说明见 [输入与画布 API](docs/input-canvas-v083.md)。
+
 ## 安装和启动
 
-本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
+原 0.8.2 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
 - `GMEngine-0.8.2-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
 - `GMEngine-0.8.2-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
@@ -54,4 +56,4 @@ $cli='../GMEngineApp/bin/gmctl.exe'
 
 当前已验证 Windows / D3D11。Android、iOS、macOS、Web 平台层尚未实现；bgfx 的跨平台能力不等于应用平台层已经完成。
 
-详细变更、命令、运行约定、验证和逐模块剩余工作见 [0.8 设计与验收](docs/engine-v08.md)。原生模块的组合方式见 [项目架构说明](docs/project-native-modules-v07.md)，该文中的 ABI 7 为历史版本，当前 ABI 为 8。依赖许可见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+详细变更、命令、运行约定、验证和逐模块剩余工作见 [0.8 设计与验收](docs/engine-v08.md)。原生模块的组合方式见 [项目架构说明](docs/project-native-modules-v07.md)，该文中的 ABI 7 为历史版本，当前源码 ABI 为 9。依赖许可见 [THIRD_PARTY.md](THIRD_PARTY.md)。

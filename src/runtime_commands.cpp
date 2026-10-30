@@ -34,6 +34,23 @@ Json hubCommand(const Json &request) {
 }
 Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &project) {
     auto op = request.at("op").get<std::string>();
+    if (op == "runtime.input") {
+        SceneInput input; input.x=request.value("x",0.f);input.y=request.value("y",0.f);
+        auto &p=input.pointer;p.mouseX=request.value("mouseX",-1.f);p.mouseY=request.value("mouseY",-1.f);
+        p.wheel=request.value("wheel",0.f);p.buttons=request.value("buttons",0u);
+        p.pressed=request.value("pressed",0u);p.released=request.value("released",0u);p.focused=1;
+        for(const char* field:{"keys","keyPress"}) if(request.contains(field)) for(auto key:request.at(field)) {
+            auto code=key.get<int>();if(code<0||code>255)throw std::runtime_error("Key code must be 0..255");
+            (std::string(field)=="keys"?p.keys:p.keyPress)[code/32] |= 1u<<(code%32);
+        }
+        auto frames=request.value("frames",1);if(frames<1||frames>10000)throw std::runtime_error("frames must be 1..10000");
+        for(int i=0;i<frames;++i) {run.tick(1.f/60,input);p.pressed=p.released=0;p.wheel=0;for(auto& key:p.keyPress)key=0;}
+        return {{"ok",true},{"result",{{"ticks",run.ticks()},{"canvasCommands",run.canvas().size()}}}};
+    }
+    if (op == "runtime.canvas") {
+        Json commands=Json::array();for(const auto& c:run.canvas())commands.push_back({{"kind",uint32_t(c.kind)},{"x",c.x},{"y",c.y},{"w",c.w},{"h",c.h},{"size",c.size},{"color",c.color},{"text",c.text}});
+        return {{"ok",true},{"result",commands}};
+    }
     auto entity = [&](const char *key) {
         auto index = run.find(request.at(key).get<std::string>());
         if (index == NoIndex)
