@@ -161,7 +161,7 @@ std::filesystem::path chooseProject() {
     app.control(L"BUTTON", L"从列表移除", WS_TABSTOP | BS_PUSHBUTTON, 224, 471, 145, 36, 4);
     app.control(L"BUTTON", L"编辑器界面工程", WS_TABSTOP | BS_PUSHBUTTON, 698, 471, 190, 36, 5);
     app.status = app.control(
-        L"STATIC", L"游戏项目保存在你选择的位置。首次编译 C++ 项目需要 CMake 与 Visual Studio C++ 工具。", 0,
+        L"STATIC", L"新建项目可直接编辑和运行。修改 C++ 脚本时才需要 CMake 与 Visual Studio C++ 工具。", 0,
         32, 529, 856, 28);
     app.refresh();
     ShowWindow(window, SW_SHOW);

@@ -12,7 +12,7 @@ $created=Project-Send $projectSample @(@{op='project.create';directory=$projectF
 $projectManifest=$created.result.manifest
 Project-Check (Test-Path -LiteralPath $projectManifest) 'Create project outside engine, with Unicode and spaces'
 $initial=Project-Send $projectManifest @(@{op='project.query'})
-Project-Check ($initial.result.components.Count -eq 9 -and $initial.result.systems.Count -eq 3) 'SDK-only module builds and registers from independent CMake project'
+Project-Check ($initial.result.components.Count -eq 9 -and $initial.result.systems.Count -eq 3) 'Precompiled template module registers without requiring a build'
 $template=Project-Send $projectManifest @(@{op='preview.run'},@{op='runtime.step';frames=6;x=1},@{op='preview.stop'})
 $originalX=$template[0].entities[0].x
 Project-Check ([Math]::Abs($template[1].entities[0].x-$originalX-10) -lt .02) 'Template native System drives engine movement'

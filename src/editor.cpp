@@ -952,10 +952,14 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int) {
         int argc=0;auto args=CommandLineToArgvW(GetCommandLineW(),&argc);
         for(int i=1;i<argc;++i) {std::wstring arg=args[i];if(arg==L"--project" && i+1<argc) project=args[++i];else if(arg==L"--game"&&i+1<argc)game=args[++i];else if(arg==L"--session" && i+1<argc) session=args[++i];else if(arg==L"--editor-shell")project=gm::engineRoot()/"editor/editor.ui.json";else throw std::runtime_error("Expected --project FILE, --game MANIFEST, --editor-shell or --session DIRECTORY");}
         LocalFree(args);
-        if(project.empty())project=game.empty()?gm::chooseProject():game;
-        if(project.empty())return 0;
+        gm::GameProject gameProject;
+        for(;;){
+            if(project.empty())project=game.empty()?gm::chooseProject():game;
+            if(project.empty())return 0;
+            try{gameProject=gm::activateProject(project,game);break;}
+            catch(const std::exception& error){MessageBoxW(nullptr,gm::wide(error.what()).c_str(),L"无法打开项目",MB_OK|MB_ICONERROR);project.clear();game.clear();}
+        }
         if(session.empty()){auto text=std::filesystem::absolute(project).generic_u8string();std::string key(text.begin(),text.end());session=gm::userDataRoot()/"sessions"/std::to_string(gm::sdk::id(key.c_str()))/"live";}
-        auto gameProject=gm::activateProject(project,game);
         gm::rememberProject(gameProject);
         WNDCLASSW cls{};cls.style=CS_DBLCLKS;cls.lpfnWndProc=windowProc;cls.hInstance=instance;cls.lpszClassName=L"GMEngineEditor";cls.hCursor=LoadCursor(nullptr,IDC_ARROW);cls.hIcon=LoadIcon(nullptr,IDI_APPLICATION);RegisterClassW(&cls);
         RECT bounds{0,0,1440,900};AdjustWindowRect(&bounds,WS_OVERLAPPEDWINDOW,FALSE);

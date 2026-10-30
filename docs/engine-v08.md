@@ -2,6 +2,8 @@
 
 这版将原先叫作 GMEngineSDK 的完整发行目录改为 GM Engine 应用，并补齐一组运行时基础能力。以下明确区分已经实现的功能和仍需开发的部分，不能把这版视为清单中的所有模块都已完成。
 
+0.8.1 修复了干净电脑中新建项目立即要求 CMake 的发行遗漏：模板 DLL 随安装包提供，复制到新项目的 `bin/windows-x64/Game.dll`，只有重新构建 C++ 时才调用工具链。未修改原生模板代码的旧项目可自动补齐缺失 DLL；自定义代码必须使用自己的编译模块。打开项目失败后回到选择器。构建工具支持 `GM_ENGINE_CMAKE` 显式路径，并能查找 CMake / Visual Studio 常见安装位置。
+
 ## 安装、项目与工作区
 
 本地应用在 `D:\Demo\GMEngineApp`。安装程序和便携包在 `D:\Demo\GMEngineBuild\releases`。安装程序按当前用户安装，提供开始菜单、可选桌面快捷方式、`.gmproject` 关联、系统卸载入口；不会移动或删除游戏项目。构建安装包使用固定版本的 [Inno Setup](https://jrsoftware.org/isinfo.php)，下载校验见 `scripts/package-editor.ps1`。
@@ -117,4 +119,5 @@ Player 在后台线程读取场景字节；校验与 World 构建仍在主线程
 - `scripts/test-project.ps1`：独立 SDK、Unicode 路径、扩展组件／System、错误重载恢复与发布。
 - `scripts/test-live.ps1`、游戏工作区 `tools/test-scene-live.ps1`：编辑器实时命令与手动工作区共享服务。
 - `scripts/verify-sdk.ps1`：整体移动安装目录后，创建、构建、发布、打开编辑器。
+- `scripts/test-installation.ps1`：移除开发工具 PATH，并把 CMake 指向不存在的路径，验证新建、编辑、运行、发布与旧模板恢复都不调用编译器；自定义代码缺少模块时明确失败。`-Headless` 跳过窗口验证供 CI 使用。
 - `.github/workflows/windows.yml`：Windows 核心与项目契约。GPU/窗口渲染测试在本地运行，不把云端无设备环境当作真机测试。

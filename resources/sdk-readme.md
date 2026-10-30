@@ -1,6 +1,8 @@
-# GM Engine 0.8
+# GM Engine 0.8.1
 
 双击 `bin/gm_editor.exe` 打开项目选择器。可以新建项目、打开 `.gmproject`，或继续最近项目。“编辑器界面工程”用于编辑编辑器自身 UI。
+
+新项目自带已编译的 `bin/windows-x64/Game.dll`，可以立即编辑场景、运行和打包，无需安装 CMake。0.8.0 新建失败的项目，如果模板 C++ 与 CMake 未修改，打开时会自动补齐缺失模块，保留场景与资源。
 
 本目录是完整的应用发行版，`sdk/` 只是其中供游戏 C++ 模块使用的公开开发接口。
 
@@ -23,4 +25,4 @@
 
 发布目录为项目的 `dist/`。保留 Player、game.dll、game.gmscene、scenes.gmcatalog、scenes/ 和许可证。
 
-Windows x64 运行程序静态链接 MSVC 运行库。开发 C++ 项目需要 CMake 与 Visual Studio 2022 C++ 工具。最近项目和默认会话位于 `%LOCALAPPDATA%/GMEngine`。`--session` 可指定实时命令会话目录。安装目录可整体移动，游戏项目通过 `sdk/cmake` 接入，不需要引擎私有源码。
+Windows x64 运行程序静态链接 MSVC 运行库。修改 C++ 脚本并重新构建，需要 CMake 与 Visual Studio 2022 C++ 工具；可设置 `GM_ENGINE_CMAKE` 为 `cmake.exe` 完整路径。打开含有自定义代码、但缺少已编译 DLL 的项目也需要工具链。最近项目和默认会话位于 `%LOCALAPPDATA%/GMEngine`。`--session` 可指定实时命令会话目录。安装目录可整体移动，游戏项目通过 `sdk/cmake` 接入，不需要引擎私有源码。

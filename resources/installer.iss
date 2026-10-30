@@ -4,10 +4,13 @@
 #ifndef OutputPath
   #define OutputPath "."
 #endif
+#ifndef AppVersion
+  #define AppVersion "0.8.1"
+#endif
 [Setup]
 AppId={{F09C1127-7BD8-48C9-9D41-82226BC2C14A}
 AppName=GM Engine
-AppVersion=0.8.0
+AppVersion={#AppVersion}
 AppPublisher=GM Engine
 DefaultDirName={localappdata}\Programs\GM Engine
 DefaultGroupName=GM Engine
@@ -15,7 +18,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputPath}
-OutputBaseFilename=GMEngine-0.8.0-Windows-x64-Setup
+OutputBaseFilename=GMEngine-{#AppVersion}-Windows-x64-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

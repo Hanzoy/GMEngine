@@ -24,5 +24,6 @@ jobs:
         run: |
           cmake --install ../GMEngineBuild/build --config Release
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./scripts/test-installation.ps1 -Headless
           ./scripts/test-v08.ps1
           ./scripts/test-project.ps1

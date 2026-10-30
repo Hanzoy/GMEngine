@@ -1,4 +1,4 @@
-# GM Engine 0.8
+# GM Engine 0.8.1
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
 
@@ -6,10 +6,12 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.8.0-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.8.0-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.8.1-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.8.1-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
+
+安装包包含已编译的基础项目模块。新建项目后可以直接编辑、运行和打包，无需安装 CMake 或 Visual Studio；模块放在项目 `bin/windows-x64/Game.dll` 中。0.8.0 新建失败留下的项目，如果模板 C++ 和 CMake 文件未修改，升级后打开时会自动补齐模块，保留已有场景与资源。
 
 ```powershell
 ./scripts/build.ps1      # 构建、测试、安装到相邻 GMEngineApp
@@ -17,7 +19,7 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 ./scripts/package-editor.ps1  # 制作安装程序及便携包
 ```
 
-构建需要 Windows x64、Visual Studio 2022 C++ 工具、CMake 3.21+、PowerShell 7。运行程序静态链接 MSVC 运行库；构建原生游戏模块仍需要 C++ 工具链。
+构建引擎源码需要 Windows x64、Visual Studio 2022 C++ 工具、CMake 3.21+、PowerShell 7。运行程序静态链接 MSVC 运行库。修改项目 C++ 后重新构建，或打开缺少 DLL 的自定义项目，仍需要 C++ 工具链。引擎查找 PATH、CMake 标准安装目录和 Visual Studio 常见安装目录中的 CMake，也可设置 `GM_ENGINE_CMAKE` 为 `cmake.exe` 的完整路径；Visual Studio 需要“使用 C++ 的桌面开发”和 CMake 工具。自定义项目不会被替换为基础模板。
 
 ## 目录
 

@@ -1,1 +1,1 @@
-{"format":"gm.project","version":1,"name":"Game","entry":"assets/main.scene.json","module":"build/Release/Game.dll"}
+{"format":"gm.project","version":1,"name":"Game","entry":"assets/main.scene.json","module":"bin/windows-x64/Game.dll"}

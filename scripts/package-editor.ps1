@@ -15,11 +15,14 @@ if(-not (Test-Path -LiteralPath $Compiler)){
 $stage=Join-Path $engineBuildRoot ('staging/GMEngine-'+[guid]::NewGuid().ToString('N'))
 & cmake --install $engineBuild --config Release --prefix $stage
 if($LASTEXITCODE -ne 0){throw 'Distribution staging failed'}
+$version=(Get-Content -LiteralPath (Join-Path $stage 'engine-sdk.json') -Raw|ConvertFrom-Json).version
+if($version -notmatch '^\d+\.\d+\.\d+$'){throw 'Invalid distribution version'}
+if(-not (Test-Path -LiteralPath (Join-Path $stage 'sdk/templates/Basic/bin/windows-x64/Game.dll'))){throw 'Precompiled starter module is missing'}
 $output=Join-Path $engineBuildRoot 'releases'
 New-Item -ItemType Directory -Force $output|Out-Null
-& $Compiler "/DEngineDir=$stage" "/DOutputPath=$output" "$engineSource/resources/installer.iss"
+& $Compiler "/DEngineDir=$stage" "/DOutputPath=$output" "/DAppVersion=$version" "$engineSource/resources/installer.iss"
 if($LASTEXITCODE -ne 0){throw 'Installer compilation failed'}
-$zip=Join-Path $output 'GMEngine-0.8.0-Windows-x64.zip'
+$zip=Join-Path $output "GMEngine-$version-Windows-x64.zip"
 Compress-Archive -Path "$stage/*" -DestinationPath $zip -Force
-Get-FileHash -LiteralPath (Join-Path $output 'GMEngine-0.8.0-Windows-x64-Setup.exe'),$zip -Algorithm SHA256 | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'SHA256.json') -Encoding utf8
+Get-FileHash -LiteralPath (Join-Path $output "GMEngine-$version-Windows-x64-Setup.exe"),$zip -Algorithm SHA256 | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output "GMEngine-$version-SHA256.json") -Encoding utf8
 Write-Output "Installer and portable archive: $output"
