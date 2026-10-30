@@ -80,7 +80,7 @@ Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &p
         auto handle = op == "runtime.entity.create"
                           ? run.create(parent)
                           : run.instantiate(run.find(request.at("source").get<std::string>()), parent);
-        return {{"ok", true}, {"result", {{"id", "runtime-" + std::to_string(handle)}}}};
+        return {{"ok", true}, {"result", {{"id", run.entityId(handle)}}}};
     }
     if (op == "runtime.entity.destroy") {
         run.destroy(entity("id"));
@@ -147,11 +147,7 @@ Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &p
                 return std::isalnum(c) || c == '_' || c == '-';
             }))
             throw std::runtime_error("Save slot must contain 1..64 letters, digits, underscores or hyphens");
-        auto path = userDataRoot() / "saves" / gameRegistry()->name() / (slot + ".gmsave");
-        if (op == "runtime.save")
-            saveScene(path, run.snapshot());
-        else
-            run.restore(loadScene(path));
+        auto path=op=="runtime.save"?run.saveSlot(slot):run.loadSlot(slot);
         auto u = path.u8string();
         return {{"ok", true}, {"result", {{"path", std::string(u.begin(), u.end())}}}};
     }

@@ -13,8 +13,8 @@ namespace {
 const bgfx::EmbeddedShader shaders[] = {
     BGFX_EMBEDDED_SHADER(vs_ocornut_imgui), BGFX_EMBEDDED_SHADER(fs_ocornut_imgui), BGFX_EMBEDDED_SHADER_END()
 };
-bool numeric(const std::string& text) {return !text.empty() && text.size()<=32 && text.find_first_not_of("0123456789-+")==std::string::npos;}
-int glyphIndex(char ch) {return ch=='-'?10:ch=='+'?11:ch-'0';}
+bool numeric(const std::string& text) {return !text.empty() && text.size()<=32 && text.find_first_not_of("0123456789-+.%")==std::string::npos;}
+int glyphIndex(char ch) {return ch=='-'?10:ch=='+'?11:ch=='.'?12:ch=='%'?13:ch-'0';}
 }
 uint32_t color(const std::string& hex) {
     const auto v=static_cast<uint32_t>(std::stoul(hex.substr(1),nullptr,16));
@@ -50,7 +50,7 @@ Renderer::~Renderer() {
     for(auto& [key,t] : images_) bgfx::destroy(t.handle);
     for(auto& [key,t] : textCache_) if(!t.pooled) bgfx::destroy(t.handle);
     for(auto& page:textPages_) bgfx::destroy(page.handle);
-    for(auto& [key,a] : numberAtlases_) bgfx::destroy(a.texture.handle);
+    for(auto& [key,a] : numberAtlases_) if(!a.texture.pooled) bgfx::destroy(a.texture.handle);
     bgfx::destroy(white_); bgfx::destroy(program_); bgfx::destroy(sampler_); bgfx::destroy(output_); bgfx::shutdown();
 }
 void Renderer::begin(uint32_t w,uint32_t h) {
@@ -64,7 +64,12 @@ void Renderer::begin(uint32_t w,uint32_t h) {
     float ortho[16]; bx::mtxOrtho(ortho,0,float(w),float(h),0,0,1000,0,bgfx::getCaps()->homogeneousDepth);
     bgfx::setViewRect(0,0,0,uint16_t(w),uint16_t(h)); bgfx::setViewTransform(0,nullptr,ortho); bgfx::touch(0); unclip();
 }
-void Renderer::end() { flush();bgfx::frame(); }
+void Renderer::end() {
+    flush();stats_.textCacheEntries=uint32_t(textCache_.size());stats_.textAtlasPages=uint32_t(textPages_.size());
+    stats_.textTextureBytes=textPages_.size()*1024ull*1024*4;
+    for(const auto& [key,t]:textCache_)if(!t.pooled)stats_.textTextureBytes+=uint64_t(t.w)*t.h*4;
+    bgfx::frame();
+}
 void Renderer::clip(Rect r) {
     clipRect_=r;clipEnabled_=true;
 }
@@ -98,7 +103,14 @@ void Renderer::flush() {
     bgfx::submit(0,program_);
     ++stats_.drawCalls;vertices_.clear();indices_.clear();
 }
-void Renderer::rect(Rect r,uint32_t c) { quad(r,white_,c); }
+void Renderer::rect(Rect r,uint32_t c) {
+    // A reserved white texel in each text page lets ordered solids/text share a draw.
+    if(!textPages_.empty()) {
+        auto handle=textPages_.back().handle;
+        for(auto& page:textPages_)if(page.handle.idx==batchTexture_.idx){handle=page.handle;break;}
+        constexpr float uv=.5f/1024;quad(r,handle,c,uv,uv,uv,uv);
+    } else quad(r,white_,c);
+}
 bgfx::TextureHandle Renderer::uploadImage(const UiImage& image) {
     if(!image.width || !image.height || image.width>MaxImageDimension || image.height>MaxImageDimension || image.rgba.size()!=uint64_t(image.width)*image.height*4) throw std::runtime_error("Invalid image upload");
     auto handle=bgfx::createTexture2D(uint16_t(image.width),uint16_t(image.height),false,1,bgfx::TextureFormat::RGBA8,BGFX_SAMPLER_U_CLAMP|BGFX_SAMPLER_V_CLAMP,bgfx::copy(image.rgba.data(),uint32_t(image.rgba.size())));
@@ -117,7 +129,10 @@ void Renderer::image(Rect box,bgfx::TextureHandle handle,ImageFit fit,uint32_t t
 }
 void Renderer::border(Rect r,uint32_t c,float t) { rect({r.x,r.y,r.w,t},c);rect({r.x,r.y+r.h-t,r.w,t},c);rect({r.x,r.y,t,r.h},c);rect({r.x+r.w-t,r.y,t,r.h},c); }
 void Renderer::sprite(const std::array<float,8>& points,bgfx::TextureHandle texture,uint32_t tint,Rect uv){
-    if(!bgfx::isValid(texture))texture=white_;if(!(tint>>24))return;
+    if(!bgfx::isValid(texture)) {
+        texture=white_;
+        if(!textPages_.empty()){texture=textPages_.back().handle;for(auto& page:textPages_)if(page.handle.idx==batchTexture_.idx){texture=page.handle;break;}uv={.5f/1024,.5f/1024,0,0};}
+    }if(!(tint>>24))return;
     std::array<Vertex,12> polygon{},scratch{};size_t count=4;
     polygon[0]={points[0],points[1],uv.x,uv.y,tint};polygon[1]={points[2],points[3],uv.x+uv.w,uv.y,tint};polygon[2]={points[4],points[5],uv.x+uv.w,uv.y+uv.h,tint};polygon[3]={points[6],points[7],uv.x,uv.y+uv.h,tint};
     // Clip rotated quads in CPU space; retain batching and interpolate UVs.
@@ -152,9 +167,10 @@ Renderer::Texture Renderer::storeText(const void* pixels,int w,int h) {
             auto oldest=std::min_element(textPages_.begin(),textPages_.end(),[](const auto& a,const auto& b){return a.lastUsed<b.lastUsed;});
             flush();
             for(auto it=textCache_.begin();it!=textCache_.end();) {if(it->second.pooled && it->second.handle.idx==oldest->handle.idx) it=textCache_.erase(it);else ++it;}
-            bgfx::destroy(oldest->handle);textPages_.erase(oldest);
+            for(auto it=numberAtlases_.begin();it!=numberAtlases_.end();) {if(it->second.texture.handle.idx==oldest->handle.idx)it=numberAtlases_.erase(it);else ++it;}
+            ++stats_.textEvictions;bgfx::destroy(oldest->handle);textPages_.erase(oldest);
         }
-        std::vector<uint8_t> clear(side*side*4,0);
+        std::vector<uint8_t> clear(side*side*4,0);std::fill_n(clear.begin(),4,uint8_t(255));
         // Supplying initial memory makes a D3D11 texture immutable. Atlas pages
         // must be created without memory, then populated through updateTexture2D.
         auto handle=bgfx::createTexture2D(side,side,false,1,bgfx::TextureFormat::RGBA8,flags);
@@ -169,45 +185,72 @@ Renderer::Texture Renderer::storeText(const void* pixels,int w,int h) {
 Renderer::NumberAtlas Renderer::makeNumberAtlas(int size) {
     ++stats_.textUploads;HDC dc=CreateCompatibleDC(nullptr);
     HFONT font=CreateFontW(-size,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,ANTIALIASED_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
-    auto oldFont=SelectObject(dc,font);const std::wstring chars=L"0123456789-+";std::array<int,12> advances{};int cell=1,h=1;
-    for(int i=0;i<12;++i) {SIZE measured{};GetTextExtentPoint32W(dc,&chars[i],1,&measured);advances[i]=int(measured.cx);cell=std::max(cell,int(measured.cx)+4);h=std::max(h,int(measured.cy)+4);}
-    const int w=cell*12;BITMAPINFO info{};info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);info.bmiHeader.biWidth=w;info.bmiHeader.biHeight=-h;info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;info.bmiHeader.biCompression=BI_RGB;
+    auto oldFont=SelectObject(dc,font);const std::wstring chars=L"0123456789-+.%";std::array<int,14> advances{};int cell=1,h=1;
+    for(int i=0;i<14;++i) {SIZE measured{};GetTextExtentPoint32W(dc,&chars[i],1,&measured);advances[i]=int(measured.cx);cell=std::max(cell,int(measured.cx)+4);h=std::max(h,int(measured.cy)+4);}
+    const int w=cell*14;BITMAPINFO info{};info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);info.bmiHeader.biWidth=w;info.bmiHeader.biHeight=-h;info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;info.bmiHeader.biCompression=BI_RGB;
     void* pixels=nullptr;auto bitmap=CreateDIBSection(dc,&info,DIB_RGB_COLORS,&pixels,nullptr,0);
     if(!bitmap || !pixels) {SelectObject(dc,oldFont);DeleteObject(font);DeleteDC(dc);throw std::runtime_error("Cannot create digit atlas");}
     auto oldBitmap=SelectObject(dc,bitmap);memset(pixels,0,size_t(w)*h*4);SetTextColor(dc,RGB(255,255,255));SetBkColor(dc,RGB(0,0,0));
-    for(int i=0;i<12;++i) TextOutW(dc,i*cell,0,&chars[i],1);GdiFlush();
+    for(int i=0;i<14;++i) TextOutW(dc,i*cell,0,&chars[i],1);GdiFlush();
     auto* rgba=static_cast<uint32_t*>(pixels);for(int i=0;i<w*h;++i) {auto a=rgba[i]&255;rgba[i]=0xffffff|(a<<24);}
-    auto texture=bgfx::createTexture2D(uint16_t(w),uint16_t(h),false,1,bgfx::TextureFormat::RGBA8,BGFX_SAMPLER_U_CLAMP|BGFX_SAMPLER_V_CLAMP,bgfx::copy(pixels,uint32_t(w*h*4)));
-    SelectObject(dc,oldBitmap);SelectObject(dc,oldFont);DeleteObject(bitmap);DeleteObject(font);DeleteDC(dc);
-    return {{texture,w,h,frame_},cell,advances};
+    auto cleanup=[&](){SelectObject(dc,oldBitmap);SelectObject(dc,oldFont);DeleteObject(bitmap);DeleteObject(font);DeleteDC(dc);};
+    try {auto texture=storeText(pixels,w,h);cleanup();return {texture,cell,advances};}catch(...){cleanup();throw;}
 }
 Renderer::NumberAtlas& Renderer::numberAtlas(int size) {
     auto it=numberAtlases_.find(size);if(it==numberAtlases_.end()) it=numberAtlases_.emplace(size,makeNumberAtlas(size)).first;return it->second;
 }
-void Renderer::text(float x,float y,const std::string& s,float size,uint32_t c,float maxWidth) {
-    if(s.empty() || size<3 || maxWidth<=0) return;
-    int px=std::clamp(int(size+0.5f),8,72);
+void Renderer::textRun(float x,float y,const std::string& s,int px,uint32_t c,float maxWidth) {
     if(numeric(s)) {
         const auto& atlas=numberAtlas(px);float offset=0;
         for(char ch:s) {
             auto index=glyphIndex(ch);float w=std::min(float(atlas.advances[index]+4),maxWidth-offset);if(w<=0) break;
-            const float u0=float(index*atlas.cellWidth)/atlas.texture.w,u1=(index*atlas.cellWidth+w)/atlas.texture.w;
-            quad({x+offset,y,w,float(atlas.texture.h)},atlas.texture.handle,c,u1,u0);offset+=atlas.advances[index];
+            const auto& t=atlas.texture;const float u0=t.u0+(t.u1-t.u0)*float(index*atlas.cellWidth)/t.w,u1=u0+(t.u1-t.u0)*w/t.w;
+            for(auto& page:textPages_)if(page.handle.idx==t.handle.idx)page.lastUsed=frame_;
+            quad({x+offset,y,w,float(t.h)},t.handle,c,u1,u0,t.v1,t.v0);offset+=atlas.advances[index];
         }
         return;
     }
     auto key=std::to_string(px)+":"+s;
-    auto it=textCache_.find(key); if(it==textCache_.end()) it=textCache_.emplace(key,makeText(s,px)).first;
+    auto it=textCache_.find(key); if(it==textCache_.end()) it=([&]{trimTextCache();return textCache_.emplace(key,makeText(s,px)).first;})();
     it->second.lastUsed=frame_;const auto& t=it->second; const float width=std::min(float(t.w),maxWidth);
     for(auto& page:textPages_) if(page.handle.idx==t.handle.idx) page.lastUsed=frame_;
     quad({x,y,width,float(t.h)},t.handle,c,t.u0+(t.u1-t.u0)*width/t.w,t.u0,t.v1,t.v0);
 }
-float Renderer::textWidth(const std::string& s,float size) {
-    if(s.empty()) return 0;
-    int px=std::clamp(int(size+0.5f),8,72);
+float Renderer::runWidth(const std::string& s,int px) {
     if(numeric(s)) {const auto& atlas=numberAtlas(px);float width=0;for(char ch:s) width+=atlas.advances[glyphIndex(ch)];return width;}
     auto key=std::to_string(px)+":"+s;
-    auto it=textCache_.find(key); if(it==textCache_.end()) it=textCache_.emplace(key,makeText(s,px)).first;
+    auto it=textCache_.find(key); if(it==textCache_.end()) it=([&]{trimTextCache();return textCache_.emplace(key,makeText(s,px)).first;})();
     it->second.lastUsed=frame_;return float(it->second.w)-4;
 }
+namespace {
+template<class F> void textRuns(const std::string& s,F fn) {
+    size_t first=0;
+    while(first<s.size()) {
+        bool digit=s[first]>='0'&&s[first]<='9';size_t end=first+1;
+        if(digit)while(end<s.size()&&((s[end]>='0'&&s[end]<='9')||s[end]=='.'||s[end]=='%'))++end;
+        else while(end<s.size()&&!(s[end]>='0'&&s[end]<='9'))++end;
+        if(!fn(s.substr(first,end-first)))break;first=end;
+    }
+}
+}
+void Renderer::text(float x,float y,const std::string& s,float size,uint32_t c,float maxWidth) {
+    if(s.empty()||size<3||maxWidth<=0)return;int px=std::clamp(int(size+.5f),8,72);float offset=0;
+    if(numeric(s)){textRun(x,y,s,px,c,maxWidth);return;}
+    textRuns(s,[&](const std::string& run){if(offset>=maxWidth)return false;auto advance=runWidth(run,px);textRun(x+offset,y,run,px,c,maxWidth-offset);offset+=advance;return true;});
+}
+float Renderer::textWidth(const std::string& s,float size) {
+    if(s.empty())return 0;int px=std::clamp(int(size+.5f),8,72);float width=0;
+    if(numeric(s))return runWidth(s,px);
+    textRuns(s,[&](const std::string& run){width+=runWidth(run,px);return true;});return width;
+}
+void Renderer::trimTextCache() {
+    uint64_t largeBytes=0;for(const auto& [key,t]:textCache_)if(!t.pooled)largeBytes+=uint64_t(t.w)*t.h*4;
+    while(textCache_.size()>=2048||largeBytes>24*1024*1024) {
+        auto oldest=std::min_element(textCache_.begin(),textCache_.end(),[](const auto& a,const auto& b){return a.second.lastUsed<b.second.lastUsed;});
+        if(oldest==textCache_.end())break;
+        if(!oldest->second.pooled){flush();largeBytes-=uint64_t(oldest->second.w)*oldest->second.h*4;bgfx::destroy(oldest->second.handle);}
+        textCache_.erase(oldest);++stats_.textEvictions;
+    }
+}
+
 }

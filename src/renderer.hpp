@@ -11,7 +11,7 @@ std::wstring wide(const std::string& utf8);
 std::string utf8(const std::wstring& text);
 class Renderer {
 public:
-    struct Stats {uint32_t quads=0,drawCalls=0,textUploads=0,imageUploads=0;};
+    struct Stats {uint32_t quads=0,drawCalls=0,textUploads=0,imageUploads=0,textEvictions=0,textCacheEntries=0,textAtlasPages=0;uint64_t textTextureBytes=0;};
     Renderer(void* window, uint32_t width, uint32_t height, bgfx::CallbackI* callback=nullptr);
     ~Renderer();
     void begin(uint32_t width, uint32_t height);
@@ -31,10 +31,13 @@ public:
 private:
     struct Texture { bgfx::TextureHandle handle; int w, h; uint64_t lastUsed=0; float u0=0,v0=0,u1=1,v1=1;bool pooled=false; };
     struct TextPage {bgfx::TextureHandle handle;int x=1,y=1,rowHeight=0;uint64_t lastUsed=0;};
-    struct NumberAtlas {Texture texture;int cellWidth;std::array<int,12> advances;};
+    struct NumberAtlas {Texture texture;int cellWidth;std::array<int,14> advances;};
     struct Vertex {float x,y,u,v;uint32_t color;};
     void quad(Rect r, bgfx::TextureHandle texture, uint32_t rgba, float u1=1,float u0=0,float v1=1,float v0=0);
     void flush();
+    void textRun(float x,float y,const std::string& text,int size,uint32_t color,float maxWidth);
+    float runWidth(const std::string& text,int size);
+    void trimTextCache();
     Texture makeText(const std::string& text, int size);
     Texture storeText(const void* pixels,int width,int height);
     NumberAtlas makeNumberAtlas(int size);

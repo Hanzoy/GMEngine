@@ -1,6 +1,8 @@
-# GM Engine 0.8.3
+# GM Engine 0.8.4
 
 当前 SDK 为 ABI 9，旧游戏模块需重新编译。新增 Frame::input（设计坐标键鼠快照）、Context::draw（有界 Canvas 命令）、runtime.input / runtime.canvas；Player 在后台继续模拟，最小化时不渲染。0.8.2 的 ABI 8 描述属于下方历史记录。
+
+0.8.4 保持 ABI 9，新增可选 `gm_game_extensions` 导出、System 私有状态 checkpoint、存储服务和模态输入路由。动态数字与静态文本共享图集，纯色图形可与文本按原顺序合批。接入说明和边界见 `docs/dsp-feedback-v084.md`。
 
 双击 `bin/gm_editor.exe` 打开项目选择器。可以新建项目、打开 `.gmproject`，或继续最近项目。“编辑器界面工程”用于编辑编辑器自身 UI。
 
@@ -11,7 +13,9 @@
 | 目录 | 内容 |
 | --- | --- |
 | `bin/` | Editor、Player、gmctl、UI 与场景编译器 |
-| `sdk/include/gm/game.hpp` | 原生组件、System、运行时实体与事件接口，ABI 8 |
+| `sdk/include/gm/game.hpp` | 原生组件、System、运行时实体、事件、输入、Canvas 接口，ABI 9 |
+| `sdk/include/gm/extensions.hpp` | 可选服务查询、存储与私有 System 存档回调 |
+| `sdk/include/gm/ui_input.hpp` | Canvas 项目的模态、焦点、指针捕获和输入消费 |
 | `sdk/cmake/` | 独立游戏模块的 CMake 接入 |
 | `sdk/templates/Basic/` | 新建项目模板 |
 | `editor/`、`resources/` | 编辑器界面及恢复资源 |

@@ -1,5 +1,5 @@
 #pragma once
-#include <gm/game.hpp>
+#include <gm/extensions.hpp>
 #include <filesystem>
 #include <memory>
 #include <span>
@@ -19,6 +19,7 @@ public:
     const NativeSystem& system(const std::string& name) const;
     const auto& components() const {return components_;}
     const auto& systems() const {return systems_;}
+    const sdk::SystemState* stateHooks(const std::string& name) const;
     uint64_t fingerprint() const {return fingerprint_;}
     const std::string& name() const {return name_;}
     const std::filesystem::path& modulePath() const {return original_;}
@@ -27,6 +28,7 @@ public:
     void validate(sdk::TypeId type,std::span<const uint32_t> fields) const;
 private:
     void finalize();
+    std::vector<sdk::SystemState> stateHooks_;
     std::vector<NativeComponent> components_;std::vector<NativeSystem> systems_;
     std::string name_="GMEngine";uint64_t fingerprint_=0;void* library_=nullptr;
     std::filesystem::path original_,shadow_;

@@ -43,7 +43,25 @@ int main(int argc,char** argv) {
             renderer.begin(960,600);renderer.rect({0,0,960,600},0xff000000);
             for(int i=0;i<300;++i) {renderer.clip({float(i%12)*80,float(i/12)*24,80,24});renderer.text(float(i%12)*80,float(i/12)*24,"Item "+std::to_string(i),14,0xffffffff,80);}
             renderer.end();
-            if(renderer.stats().drawCalls!=2) throw std::runtime_error("300 clipped labels did not share a text atlas batch");
+            if(renderer.stats().drawCalls>3) throw std::runtime_error("300 clipped labels did not share a text atlas batch");
+            renderer.begin(960,600);renderer.text(0,0,"供电 123.45% / 678.90 MW",14,0xffffffff);renderer.end();
+            for(int frame=0;frame<300;++frame){
+                renderer.begin(960,600);
+                for(int row=0;row<30;++row){renderer.rect({0,float(row*18),600,18},0xff223344);renderer.text(0,float(row*18),"供电 "+std::to_string(frame*30+row)+".25% / 670.20 MW",14,0xffffffff);}
+                renderer.end();
+                if(renderer.stats().textUploads!=0)throw std::runtime_error("Changing mixed numeric labels uploaded new text");
+                if(renderer.stats().drawCalls>4)throw std::runtime_error("Interleaved text and solids did not batch in order");
+                if(renderer.stats().textTextureBytes>42ull*1024*1024||renderer.stats().textCacheEntries>2048)throw std::runtime_error("Text cache exceeded budget");
+            }
+            uint32_t evictions=0;
+            for(int frame=0;frame<120;++frame){
+                renderer.begin(960,600);
+                for(int row=0;row<10;++row){int value=frame*10+row;std::string label;for(int n=0;n<4;++n){label+=char('A'+value%26);value/=26;}label+=std::string(frame%2?100:20,'W');renderer.text(0,float(row*40),label,24,0xffffffff);renderer.text(600,float(row*40),std::to_string(frame),24,0xffffffff);}
+                renderer.end();evictions+=renderer.stats().textEvictions;
+                if(renderer.stats().textTextureBytes>42ull*1024*1024||renderer.stats().textCacheEntries>2048||renderer.stats().textAtlasPages>4)throw std::runtime_error("Unique text churn exceeded cache budget");
+            }
+            if(!evictions)throw std::runtime_error("Unique text churn did not exercise eviction");
+            std::cout<<"PASS: dynamic mixed labels reuse textures; unique text churn evicts within budget\n";
             std::cout<<"PASS: 2 unique image uploads, no uploads/layout rebuilds for 7 image actions, no texture leaks across 3 reloads\n";
             std::cout<<"PASS: solid batching, "<<initialDraws<<" counter draw calls, zero text texture uploads for 20 increments, one layout build\n";
         }

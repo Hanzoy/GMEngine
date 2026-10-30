@@ -1,4 +1,5 @@
 #include "scene.hpp"
+#include "checkpoint.hpp"
 #include <flecs.h>
 #include <algorithm>
 #include <bit>
@@ -50,6 +51,7 @@ struct SceneRuntime::Impl {
     std::vector<uint32_t> order;
     std::vector<uint32_t> freeSlots;
     uint32_t authoredCount = 0;
+    uint64_t runtimeSequence = 1;
     std::vector<std::vector<uint32_t>> children;
     std::unordered_map<std::string, uint32_t> ids;
     std::unordered_map<sdk::Entity, uint32_t> slots;
@@ -139,6 +141,11 @@ struct SceneRuntime::Impl {
             auto index = s.records[s.slots.at(p)].parent;
             p = index == NoIndex ? 0 : s.handles[index];
         }
+        std::string id;
+        do {
+            if(!s.runtimeSequence)throw std::runtime_error("Runtime entity identity exhausted");
+            id="runtime-"+std::to_string(s.runtimeSequence++);
+        } while(s.ids.count(id));
         auto e = ecs_new(s.world.c_ptr());
         uint32_t index;
         if (s.freeSlots.empty()) {
@@ -152,7 +159,6 @@ struct SceneRuntime::Impl {
             s.handles[index] = e;
         }
         s.slots[e] = index;
-        auto id = "runtime-" + std::to_string(e);
         s.ids[id] = index;
         s.records[index] = {id, parent ? s.slots.at(parent) : NoIndex, {}};
         if (parent)
@@ -381,7 +387,7 @@ struct SceneRuntime::Impl {
             throw;
         }
     }
-    explicit Impl(const CompiledScene &s, std::shared_ptr<GameRegistry> r)
+    explicit Impl(const CompiledScene &s, std::shared_ptr<GameRegistry> r, const RuntimeCheckpoint* saved=nullptr)
         : registry(std::move(r)), records(s.entities), authoredCount(uint32_t(s.entities.size())),
           imageCount(s.imageBank.images.size()) {
         children.resize(records.size());
@@ -413,6 +419,10 @@ struct SceneRuntime::Impl {
                 assign(e, c.type, c.fields);
         }
         reorder();
+        if (saved) {
+            frame.tick = saved->tick;
+            runtimeSequence = saved->runtimeSequence;
+        }
         frame.width = s.width;
         frame.height = s.height;
         transforms();
@@ -423,7 +433,25 @@ struct SceneRuntime::Impl {
                 if (std::find(s.disabledSystems.begin(), s.disabledSystems.end(), d.name) !=
                     s.disabledSystems.end())
                     continue;
-                void *state = d.create ? d.create(&c) : nullptr;
+                void *state = nullptr;
+                if (saved && registry->stateHooks(d.name)) {
+                    auto hook = registry->stateHooks(d.name);
+                    auto found = std::find_if(saved->systems.begin(), saved->systems.end(),
+                                              [&](const SavedSystem &data) { return data.name == d.name; });
+                    if (found == saved->systems.end())
+                        throw std::runtime_error(std::string("Missing saved System state: ") + d.name);
+                    sdk::Error error;
+                    state = hook->restore(&c, found->version, found->bytes.data(),
+                                          uint32_t(found->bytes.size()), &error);
+                    error.message[511] = 0;
+                    if (!state)
+                        throw std::runtime_error(std::string(d.name) + ": restore failed: " + error.message);
+                } else {
+                    if (saved && d.create)
+                        throw std::runtime_error(std::string(d.name) +
+                                                 ": stateful System has no checkpoint extension");
+                    state = d.create ? d.create(&c) : nullptr;
+                }
                 systems.push_back({d, state, {d.name}});
                 commit();
             }
@@ -742,6 +770,11 @@ sdk::Entity SceneRuntime::entity(uint32_t index) const {
 const std::vector<SceneEntity> &SceneRuntime::entities() const {
     return impl_->records;
 }
+const std::string& SceneRuntime::entityId(sdk::Entity entity) const {
+    auto found=impl_->slots.find(entity);
+    if(found==impl_->slots.end())throw std::runtime_error("Runtime entity not found");
+    return impl_->records[found->second].id;
+}
 sdk::Entity SceneRuntime::create(sdk::Entity parent) {
     auto e = Impl::create(impl_.get(), parent);
     impl_->commit();
@@ -896,5 +929,121 @@ CompiledScene SceneRuntime::snapshot() const {
         }
     validateSceneBinary(next);
     return next;
+}
+
+std::vector<uint8_t> SceneRuntime::checkpoint() const {
+    RuntimeCheckpoint saved;
+    saved.scene = snapshot();
+    saved.tick = ticks();
+    saved.runtimeSequence = impl_->runtimeSequence;
+    saved.remainder = clock_.remainder();
+    saved.dropped = clock_.droppedSeconds();
+    for (const auto &system : impl_->systems) {
+        auto *hook = registry_->stateHooks(system.descriptor.name);
+        if (!hook) {
+            if (system.descriptor.create)
+                throw std::runtime_error(std::string(system.descriptor.name) +
+                                         ": register SystemState callbacks before saving private state");
+            continue;
+        }
+        SavedSystem blob;
+        blob.name = hook->system;
+        blob.version = hook->version;
+        sdk::ByteSink sink{&blob.bytes, [](void *ptr, const void *data, uint32_t size) {
+                               auto &bytes = *static_cast<std::vector<uint8_t> *>(ptr);
+                               if (size > 64 * 1024 * 1024 - bytes.size() || (!data && size))
+                                   return false;
+                               try {
+                                   auto *first = static_cast<const uint8_t *>(data);
+                                   if (size)
+                                       bytes.insert(bytes.end(), first, first + size);
+                                   return true;
+                               } catch (...) {
+                                   return false;
+                               }
+                           }};
+        sdk::Error error;
+        if (!hook->save(system.state, &sink, &error)) {
+            error.message[511] = 0;
+            throw std::runtime_error(blob.name + ": save failed: " + error.message);
+        }
+        saved.systems.push_back(std::move(blob));
+    }
+    auto name = [&](sdk::Entity entity) {
+        auto found = impl_->slots.find(entity);
+        return found == impl_->slots.end() ? std::string{} : impl_->records[found->second].id;
+    };
+    for (const auto &event : impl_->outbox)
+        saved.events.push_back({event, name(event.source), name(event.target)});
+    for (auto [a, b] : impl_->contacts) {
+        auto first = name(a), second = name(b);
+        if (!first.empty() && !second.empty())
+            saved.contacts.emplace_back(first, second);
+    }
+    return encodeCheckpoint(saved);
+}
+void SceneRuntime::restoreCheckpoint(std::span<const uint8_t> bytes) {
+    if (bytes.size() >= 4 && std::memcmp(bytes.data(), "GMEC", 4) == 0) {
+        for (const auto &system : impl_->systems)
+            if (system.descriptor.create)
+                throw std::runtime_error("Legacy ECS-only save cannot restore private System state");
+        restore(decodeScene(bytes));
+        return;
+    }
+    auto saved = decodeCheckpoint(bytes);
+    FixedStep clock;
+    clock.restore(saved.remainder, saved.dropped);
+    for (const auto &state : saved.systems) {
+        auto hook = registry_->stateHooks(state.name);
+        if (!hook || std::find(saved.scene.disabledSystems.begin(), saved.scene.disabledSystems.end(),
+                               state.name) != saved.scene.disabledSystems.end())
+            throw std::runtime_error("Checkpoint contains an unknown or disabled System: " + state.name);
+    }
+    auto next = std::make_unique<Impl>(saved.scene, registry_, &saved);
+    auto hud = std::make_unique<RuntimeDocument>(saved.scene.hud);
+    auto resolve = [&](const std::string &name) -> sdk::Entity {
+        if (name.empty())
+            return 0;
+        auto found = next->ids.find(name);
+        if (found == next->ids.end())
+            throw std::runtime_error("Checkpoint event/contact entity not found");
+        return next->handles[found->second];
+    };
+    for (auto event : saved.events) {
+        event.event.source = resolve(event.source);
+        event.event.target = resolve(event.target);
+        next->outbox.push_back(event.event);
+    }
+    for (const auto &[a, b] : saved.contacts) {
+        auto first = resolve(a), second = resolve(b);
+        if (!first || !second)
+            throw std::runtime_error("Invalid checkpoint contact");
+        next->contacts.insert(std::minmax(first, second));
+    }
+    asset_ = std::move(saved.scene);
+    impl_ = std::move(next);
+    hud_ = std::move(hud);
+    clock_ = clock;
+    pendingInput_ = {};
+    spriteRevision_ = 0;
+    spriteRows_.clear();
+    sprites_.clear();
+    bound_.assign(asset_.bindings.size(), BoundValue{});
+    extract();
+    syncUi();
+}
+std::filesystem::path SceneRuntime::saveSlot(const std::string &slot) {
+    auto bytes = checkpoint();
+    if (!saveStorage_)
+        saveStorage_ = std::make_unique<StorageSession>(registry_->name());
+    saveStorage_->write(slot + ".gmsave", bytes);
+    return saveStorage_->path(slot + ".gmsave");
+}
+std::filesystem::path SceneRuntime::loadSlot(const std::string &slot) {
+    if (!saveStorage_)
+        saveStorage_ = std::make_unique<StorageSession>(registry_->name());
+    auto bytes = saveStorage_->read(slot + ".gmsave");
+    restoreCheckpoint(bytes);
+    return saveStorage_->path(slot + ".gmsave");
 }
 } // namespace gm

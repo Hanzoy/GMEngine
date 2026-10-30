@@ -28,7 +28,7 @@ GMEngineGame/
 
 ## ECS 与运行约定
 
-SDK ABI 升为 8。已有项目需要重新编译 DLL；打开旧 ABI 模块时编辑器会尝试重新构建。组件仍为平坦值数据，项目 System 通过公开 C ABI 注册；状态的 create/destroy 保持在模块内部配对，不跨模块转移 STL 所有权。
+0.8.0 的 SDK ABI 为 8；0.8.3 增加输入与 Canvas 后升为 9，0.8.4 保持 ABI 9 并通过可选扩展增加服务。已有旧 ABI 项目需要重新编译 DLL；打开旧 ABI 模块时编辑器会尝试重新构建。组件仍为平坦值数据，项目 System 通过公开 C ABI 注册；状态的 create/destroy 保持在模块内部配对，不跨模块转移 STL 所有权。
 
 - `Context::create(parent)`、`destroy(entity)`、`set<T>`、`remove<T>` 在 System 执行结束后提交结构变化，可以在 `each` 中使用。`create` 返回带代数的实体句柄，新组件要到提交后才能查询。
 - `get`、`getMut` 和查询得到的组件指针只在当前 System 的结构提交边界之前有效。生成的实体槽位会复用，旧句柄不会重新指向新实体；有源资源／UI 绑定的槽位不复用。
@@ -94,7 +94,7 @@ Player 的场景字节读取从每次 `std::async` 改为共享任务池，每�
 
 Player 在后台线程读取场景字节；校验与 World 构建仍在主线程，成功后替换旧 World。读取或 World 构建失败会提示错误并保留旧场景；纹理随后在主线程渲染路径上传，尚未提供显存不足时的整场景回滚。这不是完整的资源流式加载／GPU 异步上传系统；多个场景仍各自嵌入图片，跨场景共享纹理和细粒度卸载尚未完成。
 
-`runtime.save/load` 将当前组件与存活实体保存为带校验的二进制快照，位置是 `%LOCALAPPDATA%/GMEngine/saves/<模块名>/<slot>.gmsave`，不覆盖场景源文件。恢复时重新建立 World 和 System 状态；不保存 System 私有状态、事件队列或模拟时钟。只有相同 schema 可加载，游戏存档版本迁移与玩家设置服务仍需继续设计。
+`runtime.save/load` 将运行状态保存到 `%LOCALAPPDATA%/GMEngine/saves/<模块名>/<slot>.gmsave`，不覆盖场景源文件。0.8.0—0.8.3 只保存 ECS；0.8.4 已加入 System 私有回调、时钟、待分发事件与接触状态，提供版本迁移、校验失败回滚、独占锁与备份。组件仍要求相同 schema，私有状态迁移由项目回调处理，有状态 System 缺少回调时拒绝保存。详见 [0.8.4 接入说明](dsp-feedback-v084.md)。
 
 ## 命令实例
 

@@ -31,6 +31,16 @@ class FixedStep {
     double alpha() const {
         return accumulator_ / step_;
     }
+    double remainder() const {
+        return accumulator_;
+    }
+    void restore(double remainder, double dropped) {
+        if (!std::isfinite(remainder) || remainder < 0 || remainder >= step_ + 1e-8 ||
+            !std::isfinite(dropped) || dropped < 0)
+            throw std::runtime_error("Invalid saved simulation clock");
+        accumulator_ = remainder;
+        dropped_ = dropped;
+    }
     double droppedSeconds() const {
         return dropped_;
     }

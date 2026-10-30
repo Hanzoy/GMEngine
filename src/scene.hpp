@@ -2,6 +2,7 @@
 #include "runtime_document.hpp"
 #include "game_registry.hpp"
 #include "fixed_step.hpp"
+#include "storage.hpp"
 #include <memory>
 namespace gm {
 using Transform2D = sdk::Transform2D;
@@ -90,10 +91,15 @@ class SceneRuntime {
     sdk::Entity instantiate(uint32_t source, sdk::Entity parent = 0);
     bool alive(uint32_t index) const;
     sdk::Entity entity(uint32_t index) const;
+    const std::string& entityId(sdk::Entity entity) const;
     const std::vector<SceneEntity> &entities() const;
     RuntimeStats stats() const;
     CompiledScene snapshot() const;
     void restore(CompiledScene scene);
+    std::vector<uint8_t> checkpoint() const;
+    void restoreCheckpoint(std::span<const uint8_t> bytes);
+    std::filesystem::path saveSlot(const std::string& slot);
+    std::filesystem::path loadSlot(const std::string& slot);
     std::string takeSceneRequest();
     SceneCamera camera() const;
     std::vector<sdk::Entity> queryArea(Rect area, uint32_t mask = 65535) const;
@@ -119,6 +125,7 @@ class SceneRuntime {
     struct Impl;
     std::unique_ptr<Impl> impl_;
     std::shared_ptr<GameRegistry> registry_;
+    std::unique_ptr<StorageSession> saveStorage_;
     CompiledScene asset_;
     std::unique_ptr<RuntimeDocument> hud_;
     std::vector<SceneSprite> sprites_;

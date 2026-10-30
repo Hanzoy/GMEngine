@@ -1,15 +1,17 @@
-# GM Engine 0.8.3（开发版）
+# GM Engine 0.8.4（开发版）
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
 
-0.8.3 在原生工厂游戏制作过程中增加了 ABI 9 键鼠输入、动态 Canvas、CLI 输入注入和场景截图工具，并修复 Player 后台停摆。已有 ABI 8 模块需要重编译。本次隔离安装在 `D:\Demo\GMEngineBuild\dsp-sdk`，未覆盖原 `GMEngineApp`。可玩项目为 `D:\Demo\GMEngineGame\projects\DSPNative`。制作过程、测试证据和 17 项引擎问题见 [DSP 复刻与引擎改进报告](docs/dsp-reproduction-engine-notes.md)，接口说明见 [输入与画布 API](docs/input-canvas-v083.md)。
+0.8.4 根据原生工厂项目的反馈增加 System 私有状态存档与版本迁移、事务恢复、独占存储服务、UI 输入路由，并优化动态文本与纯色图形合批。核心保持 ABI 9，通过可选扩展和服务查询接入；ABI 8 模块仍需重编译。实测同一工厂画面的 draw 从 150 降至 1，游戏读档后续跑结果逐字节一致。详细接口、证据与限制见 [0.8.4 反馈落实](docs/dsp-feedback-v084.md)。
+
+0.8.3 已提供键鼠快照、动态 Canvas、CLI 输入注入、场景截图和 Player 后台模拟。制作过程及原始 17 项反馈见 [DSP 复刻报告](docs/dsp-reproduction-engine-notes.md)，输入接口见 [输入与画布 API](docs/input-canvas-v083.md)。独立游戏位于 `D:\Demo\GMEngineGame\projects\DSPNative`。
 
 ## 安装和启动
 
-原 0.8.2 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
+0.8.4 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.8.2-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.8.2-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.8.4-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.8.4-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
 

@@ -1,4 +1,5 @@
 #include "game_registry.hpp"
+#include "storage.hpp"
 #include <algorithm>
 #include <bit>
 #include <chrono>
@@ -70,7 +71,18 @@ void GameRegistry::load(const std::filesystem::path& path){
     for(uint32_t i=0;i<module->componentCount;++i){auto d=module->components[i];check(validName(d.name)&&!std::string(d.name).starts_with("gm."),"Invalid component name / reserved gm. namespace");components_.push_back({d,sdk::id(d.name),false});}
     for(uint32_t i=0;i<module->systemCount;++i){auto d=module->systems[i];check(validName(d.name),"Invalid System name");systems_.push_back({d,sdk::id(d.name),false});}
     finalize();
+#ifdef _WIN32
+    auto extension=reinterpret_cast<sdk::ExtensionEntry>(GetProcAddress(static_cast<HMODULE>(library_),"gm_game_extensions"));
+#else
+    auto extension=reinterpret_cast<sdk::ExtensionEntry>(dlsym(library_,"gm_game_extensions"));
+#endif
+    if(extension)if(const auto* extra=extension(1,&hostServices())) {
+        check(extra->version==1&&extra->structSize>=sizeof(sdk::ModuleExtensions)&&extra->stateCount<=128&&(!extra->stateCount||extra->states),"Invalid module extensions");
+        std::set<std::string> names;
+        for(uint32_t i=0;i<extra->stateCount;++i){auto* state=extra->states[i];check(state&&state->structSize>=sizeof(sdk::SystemState)&&validName(state->system)&&state->version&&state->save&&state->restore,"Invalid System state extension");const auto& sys=system(state->system);check(!sys.engine&&sys.descriptor.destroy&&names.insert(state->system).second,"Duplicate / invalid System state extension");stateHooks_.push_back(*state);}
+    }
 }
+const sdk::SystemState* GameRegistry::stateHooks(const std::string& name) const {for(const auto& hook:stateHooks_)if(name==hook.system)return &hook;return nullptr;}
 const NativeComponent& GameRegistry::component(sdk::TypeId id)const{for(const auto& d:components_)if(d.id==id)return d;throw std::runtime_error("Unknown component ID; load the correct project module");}
 const NativeComponent& GameRegistry::component(const std::string& name)const{const auto& c=component(sdk::id(name.c_str()));check(name==c.descriptor.name,"Component ID collision");return c;}
 const NativeSystem& GameRegistry::system(const std::string& name)const{for(const auto& s:systems_)if(name==s.descriptor.name)return s;throw std::runtime_error("Unknown System: "+name);}

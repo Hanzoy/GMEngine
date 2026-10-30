@@ -46,7 +46,7 @@ int main(int argc,char** argv){try{
         for(int i=0;i<5;++i){renderer.begin(width,height);view.render(scene,{0,0,float(width),float(height)});renderer.end();}
         bgfx::requestScreenShot(BGFX_INVALID_HANDLE,"capture");
         for(int i=0;i<120&&!callback.result.load();++i){renderer.begin(width,height);view.render(scene,{0,0,float(width),float(height)});renderer.end();std::this_thread::sleep_for(std::chrono::milliseconds(5));}
-        std::cout<<"canvas="<<scene.canvas().size()<<" quads="<<renderer.stats().quads<<" draws="<<renderer.stats().drawCalls<<" simulationMs="<<scene.stats().simulationMs<<'\n';
+        std::cout<<"canvas="<<scene.canvas().size()<<" quads="<<renderer.stats().quads<<" draws="<<renderer.stats().drawCalls<<" textUploads="<<renderer.stats().textUploads<<" textEntries="<<renderer.stats().textCacheEntries<<" textBytes="<<renderer.stats().textTextureBytes<<" simulationMs="<<scene.stats().simulationMs<<'\n';
     }
     DestroyWindow(window);if(callback.result.load()!=1)throw std::runtime_error("GPU screenshot failed/timed out");return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

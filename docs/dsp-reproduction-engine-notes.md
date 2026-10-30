@@ -2,6 +2,8 @@
 
 日期：2026-10-30。目标经用户确认：先完成可玩的 Windows 原生单机闭环。
 
+2026-10-31 跟进：0.8.4 已落实 E04/E05/E08/E09/E10，并以可选扩展改进 E13；实际实现、测试和剩余边界见 [反馈落实记录](dsp-feedback-v084.md)。下文保留 0.8.3 制作时的原始证据。
+
 ## 交付位置与基线
 
 - 游戏工程：`D:/Demo/GMEngineGame/projects/DSPNative/game.gmproject`。

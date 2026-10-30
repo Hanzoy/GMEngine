@@ -9,15 +9,6 @@
 #include <windows.h>
 #endif
 namespace gm {
-std::filesystem::path userDataRoot(){
-#ifdef _WIN32
-    wchar_t overridePath[32768]{};auto overrideSize=GetEnvironmentVariableW(L"GM_ENGINE_USER_DATA",overridePath,32768);if(overrideSize&&overrideSize<32768)return std::filesystem::absolute(overridePath).lexically_normal();
-    wchar_t buffer[32768]{};auto n=GetEnvironmentVariableW(L"LOCALAPPDATA",buffer,32768);if(n&&n<32768)return std::filesystem::path(buffer)/"GMEngine";
-#else
-    if(auto* home=std::getenv("HOME"))return std::filesystem::path(home)/".local/share/GMEngine";
-#endif
-    throw std::runtime_error("Cannot locate per-user engine data directory");
-}
 Json recentProjects(){auto result=Json::array();try{auto data=readJson(userDataRoot()/"projects.json");if(data.is_array())for(auto item:data){if(!item.is_object()||!item.contains("path")||!item["path"].is_string()||!item.contains("name")||!item["name"].is_string())continue;auto text=item["path"].get<std::string>();std::error_code ec;item["exists"]=std::filesystem::exists(std::filesystem::path(std::u8string(text.begin(),text.end())),ec);result.push_back(item);if(result.size()==30)break;}}catch(...){}return result;}
 void forgetProject(const std::filesystem::path& manifest){auto items=recentProjects();auto path=std::filesystem::absolute(manifest).lexically_normal().generic_u8string();auto text=std::string(path.begin(),path.end());items.erase(std::remove_if(items.begin(),items.end(),[&](const Json& item){return item.at("path")==text;}),items.end());writeJsonAtomic(userDataRoot()/"projects.json",items);}
 void rememberProject(const GameProject& project){if(!project.valid())return;forgetProject(project.manifest);auto items=recentProjects();auto path=project.manifest.generic_u8string();items.insert(items.begin(),Json{{"name",project.name},{"path",std::string(path.begin(),path.end())}});if(items.size()>30)items.erase(items.begin()+30,items.end());writeJsonAtomic(userDataRoot()/"projects.json",items);}
