@@ -1,4 +1,4 @@
-# GM Engine 0.8.1
+# GM Engine 0.8.2
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
 
@@ -6,8 +6,8 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.8.1-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.8.1-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.8.2-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.8.2-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
 
@@ -47,6 +47,10 @@ $cli='../GMEngineApp/bin/gmctl.exe'
 ```
 
 游戏发布到项目 `dist/`，入口为 `gm_player.exe`，包含原生模块、二进制入口场景及其他场景目录，不包含 JSON、C++ 或原始图片。`--check` 可进行无窗口加载验证。
+
+0.8.2 将编辑器的构建、资源导入、打包移到后台，状态栏和项目面板可取消；成功后主线程验证并加载模块。默认实时 CLI 仍等待最终结果，传入 `"async":true` 可立即获取任务 ID，通过 `project.task.status` / `project.task.cancel` 查询和取消。离线 CLI 仍同步执行。
+
+底层增加固定工作线程池和有界队列，Player 场景读取复用线程，支持取消。ECS System 仍串行；场景解码、World 构建、纹理提交仍在主线程。详见 [后台任务与多线程边界](docs/engine-v08.md)。
 
 当前已验证 Windows / D3D11。Android、iOS、macOS、Web 平台层尚未实现；bgfx 的跨平台能力不等于应用平台层已经完成。
 

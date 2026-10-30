@@ -63,6 +63,9 @@ int main() {
         gm::saveCatalog(temp / "scenes.gmcatalog", {{"test-id", "test", "scenes/test.gmscene"}});
         gm::SceneLoader loader(temp / "scenes.gmcatalog");
         loader.request("test-id");
+        loader.cancel();
+        check(!loader.pending() && !loader.poll(), "Cancelled scene read cannot be published");
+        loader.request("test-id");
         std::unique_ptr<gm::CompiledScene> loaded;
         for (int i = 0; i < 1000 && !loaded; ++i) {
             loaded = loader.poll();

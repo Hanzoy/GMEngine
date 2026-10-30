@@ -85,20 +85,25 @@ void SceneLoader::request(const std::string &id) {
     auto relative = path.lexically_relative(root_);
     if (relative.empty() || *relative.begin() == "..")
         throw std::runtime_error("Scene path escapes catalog root");
-    pending_ = std::async(std::launch::async, [path] {
+    pending_ = backgroundTasks().submit("scene.read", [path](std::stop_token token) {
         std::ifstream in(path, std::ios::binary | std::ios::ate);
         check(bool(in), "Cannot open scene");
         auto size = in.tellg();
         check(size >= 0 && size <= 192 * 1024 * 1024 + 12, "Invalid scene file size");
         std::vector<uint8_t> bytes(static_cast<size_t>(size));
         in.seekg(0);
-        in.read(reinterpret_cast<char *>(bytes.data()), size);
-        check(bool(in), "Scene read failed");
+        for (size_t offset = 0; offset < bytes.size();) {
+            checkCancellation(token);
+            auto count = std::min<size_t>(1024 * 1024, bytes.size() - offset);
+            in.read(reinterpret_cast<char *>(bytes.data() + offset), count);
+            check(bool(in), "Scene read failed");
+            offset += count;
+        }
         return bytes;
     });
 }
 std::unique_ptr<CompiledScene> SceneLoader::poll() {
-    if (!pending() || pending_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+    if (!pending_.ready())
         return {};
     auto bytes = pending_.get();
     return std::make_unique<CompiledScene>(decodeScene(bytes));

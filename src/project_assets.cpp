@@ -55,6 +55,7 @@ void references(const Json &node, std::set<std::string> &out) {
 }
 } // namespace
 Json importProjectAssets(const GameProject &p) {
+    auto operation = lockProjectOperation(p);
     if (!p.valid())
         throw std::runtime_error("Open a game project first");
     Json assets = Json::array();
@@ -83,6 +84,7 @@ Json importProjectAssets(const GameProject &p) {
     return assets;
 }
 Json buildProjectAssets(const GameProject &p) {
+    auto operation = lockProjectOperation(p);
     auto assets = importProjectAssets(p);
     Json previous = Json::object();
     auto cache = p.root / ".gm/import-cache.json";

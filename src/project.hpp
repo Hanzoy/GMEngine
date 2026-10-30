@@ -2,6 +2,8 @@
 #include "scene_compiler.hpp"
 namespace gm {
 struct GameProject {std::filesystem::path manifest,root,entry,module;std::string name;bool valid()const{return !manifest.empty();}};
+// Reentrant on the calling thread; rejects concurrent import/build/package writers in other processes.
+std::shared_ptr<void> lockProjectOperation(const GameProject& project);
 std::filesystem::path engineRoot();
 std::filesystem::path userDataRoot();
 Json recentProjects();

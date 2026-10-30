@@ -1,6 +1,6 @@
 #pragma once
 #include "scene.hpp"
-#include <future>
+#include "tasks.hpp"
 namespace gm {
 struct SceneEntry {
     std::string id, name, file;
@@ -11,6 +11,13 @@ std::vector<SceneEntry> loadCatalog(const std::filesystem::path &path);
 class SceneLoader {
   public:
     explicit SceneLoader(std::filesystem::path catalog);
+    ~SceneLoader() {
+        cancel();
+    }
+    void cancel() {
+        pending_.cancel();
+        pending_ = {};
+    }
     void request(const std::string &id);
     bool pending() const {
         return pending_.valid();
@@ -23,6 +30,6 @@ class SceneLoader {
   private:
     std::filesystem::path root_;
     std::vector<SceneEntry> entries_;
-    std::future<std::vector<uint8_t>> pending_;
+    Task<std::vector<uint8_t>> pending_;
 };
 } // namespace gm

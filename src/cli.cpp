@@ -5,14 +5,14 @@
 #include <fstream>
 namespace { std::filesystem::path utfpath(const std::string& value){return std::filesystem::path(std::u8string(value.begin(),value.end()));}
 class Session {
-    gm::GameProject project_;std::unique_ptr<gm::Document> document_;std::unique_ptr<gm::SceneRuntime> runtime_;bool paused_=true,preparedBuild_=false;
+    std::shared_ptr<void> initialBuildLock_;gm::GameProject project_;std::unique_ptr<gm::Document> document_;std::unique_ptr<gm::SceneRuntime> runtime_;bool paused_=true,preparedBuild_=false;
 public:
     explicit Session(std::filesystem::path path,const std::filesystem::path& game,bool buildFirst=false){
         // A broken previous DLL must not prevent the CLI from rebuilding its source.
-        if(buildFirst){auto manifest=game;if(manifest.empty()&&path.extension()==".gmproject")manifest=path;if(manifest.empty()){auto dir=std::filesystem::absolute(path).parent_path();while(!dir.empty()){if(std::filesystem::exists(dir/"game.gmproject")){manifest=dir/"game.gmproject";break;}auto parent=dir.parent_path();if(parent==dir)break;dir=parent;}}if(!manifest.empty()){gm::buildProjectModule(gm::readProject(manifest));preparedBuild_=true;}}
+        if(buildFirst){auto manifest=game;if(manifest.empty()&&path.extension()==".gmproject")manifest=path;if(manifest.empty()){auto dir=std::filesystem::absolute(path).parent_path();while(!dir.empty()){if(std::filesystem::exists(dir/"game.gmproject")){manifest=dir/"game.gmproject";break;}auto parent=dir.parent_path();if(parent==dir)break;dir=parent;}}if(!manifest.empty()){auto project=gm::readProject(manifest);initialBuildLock_=gm::lockProjectOperation(project);gm::buildProjectModule(project);preparedBuild_=true;}}
         project_=gm::activateProject(path,game);document_=std::make_unique<gm::Document>(path);
     }
-    gm::Json execute(const gm::Json& request){try{auto op=request.at("op").get<std::string>();auto& doc=*document_;if(request.contains("expected_revision")&&request["expected_revision"]!=doc.revision())throw std::runtime_error("Revision conflict; query again");
+    gm::Json execute(const gm::Json& request){try{auto op=request.at("op").get<std::string>();auto preparedLock=std::move(initialBuildLock_);auto operation=(op=="project.build"||op=="project.package"||op=="project.assets")?gm::lockProjectOperation(project_):std::shared_ptr<void>{};auto& doc=*document_;if(request.contains("expected_revision")&&request["expected_revision"]!=doc.revision())throw std::runtime_error("Revision conflict; query again");
         if(op=="project.query")return {{"ok",true},{"result",gm::projectDescription(project_)}};
         if(op=="project.recent")return {{"ok",true},{"result",gm::recentProjects()}};
         if(op=="project.assets")return {{"ok",true},{"result",gm::importProjectAssets(project_)}};

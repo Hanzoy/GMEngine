@@ -9,6 +9,7 @@
 #include "scene_compiler.hpp"
 #include "scene_view.hpp"
 #include "project.hpp"
+#include "project_tasks.hpp"
 #include <functional>
 #include <unordered_map>
 #include <windows.h>
@@ -69,6 +70,7 @@ public:
         logs_.push_back("已打开 " + pathText(doc_.path().filename()));
     }
     ~Editor() {
+        if(projectBusy()){projectTask_.cancel();pollProjectTask(true);}
         stopPreview();
         saveWorkspace(); images_.reset(); renderer_.reset(); std::error_code ec;
         std::filesystem::remove(session_/"session.json",ec);
@@ -78,6 +80,7 @@ public:
         requestFrame();
         try {
             const auto op=request.at("op").get<std::string>();
+            if(projectBusy()&&!allowedDuringProjectTask(op))throw std::runtime_error("项目任务执行中；可继续查看，或在项目面板取消任务后编辑。");
             if(request.contains("expected_revision")&&request["expected_revision"]!=doc_.revision())throw std::runtime_error("Revision conflict; query again");
             if(scenePlay_&&(op=="set"||op=="batch"||op=="undo"||op=="redo"||op=="reload"||op=="create"||op=="remove"||op=="duplicate"||op=="asset.add"||op=="asset.apply"||op=="system.set"||op.starts_with("binding.")||op.starts_with("entity.")||op.starts_with("component.")))throw std::runtime_error("请先停止运行，再编辑场景组件。");
             if(op.starts_with("project."))return projectCommand(request);
@@ -140,6 +143,11 @@ public:
                 commands["asset.add"]="Add the selected image to the canvas";commands["asset.apply"]="Apply the selected image to the selected image node";
                 commands["bottom.tab"]={{"name","assets or output"}};commands["files.refresh"]="Refresh asset files and image cache";
                 commands["preview.run"]="Compile current in-memory resource; scene runs in isolated World (optional paused:true), UI launches Player";commands["preview.stop"]="Stop simulation or this editor's UI preview process";
+                commands["project.task.status"]="Live editor: current or last task ID, state, elapsed time and final response";
+                commands["project.task.cancel"]="Live editor: cooperatively cancel the active task and its build processes";
+                commands["project.build"]="Stop and save first; default live CLI waits for final result; async:true returns a task ID";
+                commands["project.package"]="Package saved assets in background; optional async:true in live CLI";
+                commands["project.assets"]="Import saved assets in background; stop and save first; optional async:true in live CLI";
                 commands["apply"]="Apply an editor UI resource to the GUI shell";
                 commands["recover"]="Restore the GUI shell; leaves current document unchanged";
                 commands["layout.reset"]="Reset GUI panel sizes";
@@ -166,6 +174,7 @@ public:
         } catch(const std::exception& e) { auto response=state(); response["ok"]=false;response["error"]=e.what();fail(e.what());return response; }
     }
     void frame() {
+        pollProjectTask();
         poll();
         updateScenePlay();
         if(previewProcess_ && WaitForSingleObject(previewProcess_,0)==WAIT_OBJECT_0) {CloseHandle(previewProcess_);previewProcess_=nullptr;requestFrame();}
@@ -355,6 +364,7 @@ public:
     }
     void captureLost() { dragMode_.clear(); }
 private:
+    #include "editor_tasks.inl"
     #include "editor_project.inl"
     #include "editor_scene.inl"
     Json state() { auto response=doc_.execute({{"op","query"}});response["result"]=nullptr;return response; }
@@ -372,7 +382,9 @@ private:
         for(const auto& f:std::filesystem::directory_iterator(session_/"inbox")) if(f.path().extension()==".json") files.push_back(f.path());
         std::sort(files.begin(),files.end());
         for(size_t i=0;i<std::min<size_t>(files.size(),16);++i) {
-            Json response;try {response=command(gm::readJson(files[i]));} catch(const std::exception& e) {response={{"ok",false},{"error",e.what()}};}
+            if(files[i]==deferredProjectRequest_)continue;
+            Json request,response;try {request=gm::readJson(files[i]);response=command(request);} catch(const std::exception& e) {response={{"ok",false},{"error",e.what()}};}
+            if(response.value("pending",false)&&!request.value("async",false)){deferredProjectRequest_=files[i];continue;}
             gm::writeJsonAtomic(session_/"outbox"/files[i].filename(),response);std::filesystem::remove(files[i]);
         }
     }
@@ -457,7 +469,7 @@ private:
         if(name=="project"){projectMenu();return;}
         if(sceneMode()){sceneMenu(name);return;}
         HMENU menu=CreatePopupMenu();std::vector<Json> actions;
-        auto item=[&](const wchar_t* label,Json cmd,bool enabled=true){actions.push_back(std::move(cmd));AppendMenuW(menu,MF_STRING|(enabled?0:MF_GRAYED),UINT_PTR(actions.size()),label);};
+        auto item=[&](const wchar_t* label,Json cmd,bool enabled=true){enabled=enabled&&(!projectBusy()||allowedDuringProjectTask(cmd.value("op",std::string())));actions.push_back(std::move(cmd));AppendMenuW(menu,MF_STRING|(enabled?0:MF_GRAYED),UINT_PTR(actions.size()),label);};
         auto separator=[&](){AppendMenuW(menu,MF_SEPARATOR,0,nullptr);};
         const auto current=state();
         if(name=="file") {
@@ -499,6 +511,7 @@ private:
         if(key=="fontSize") return 14;if(key=="visible") return true;if(key=="text") return "";return 0;
     }
     void startEdit(const std::string& key) {
+        if(projectBusy()&&!key.starts_with("$"))return;
         std::string initial;
         if(key=="$tree") initial=treeSearch_;
         else if(key=="$files") initial=fileSearch_;
@@ -536,6 +549,7 @@ private:
         text(r.x+std::max(4*scale_,(r.w-w)*.5f),r.y+(r.h-size*scale_)*.5f-2*scale_,label,size,color,r.w-8*scale_);
     }
     void button(Rect r,const std::string& label,Json cmd,const std::string& tooltip="",bool active=false,bool enabled=true) {
+        enabled=enabled&&(!projectBusy()||allowedDuringProjectTask(cmd.value("op",std::string())));
         if(active || (enabled && r.contains(mouseX_,mouseY_))) renderer_->rect(r,active?C("#344963"):C("#373A40"));
         centered(r,label,13,enabled?(active?C("#DDEBFF"):ink()):C("#646A73"));
         hits_.push_back({r,std::move(cmd),tooltip,enabled});
@@ -870,9 +884,10 @@ private:
     }
     void drawStatus(Rect r) {
         renderer_->rect({r.x,r.y,r.w,scale_},C("#16181B"));
-        auto display=message_;
+        auto display=projectBusy()?projectTaskText():message_;
         if(display.empty()) {std::error_code ec;auto relative=std::filesystem::relative(doc_.path(),contentRoot(),ec);display=pathText(ec?doc_.path():relative);}
-        text(r.x+10*scale_,r.y+4*scale_,display,11,error_?C("#DDA29A"):muted(),r.w-145*scale_);
+        text(r.x+10*scale_,r.y+4*scale_,display,11,error_?C("#DDA29A"):muted(),r.w-(projectBusy()?225:145)*scale_);
+        if(projectBusy())button({r.x+r.w-210*scale_,r.y,75*scale_,22*scale_},"取消任务",{{"op","project.task.cancel"}},"取消当前后台任务",false,!cancellingProjectTask_);
         text(r.x+r.w-120*scale_,r.y+4*scale_,doc_.dirty()?"● 未保存":"已保存",11,doc_.dirty()?C("#D1B88A"):muted(),110*scale_);
     }
     std::vector<std::pair<std::string,Rect>> splitters() const {
