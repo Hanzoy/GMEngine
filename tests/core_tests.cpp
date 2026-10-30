@@ -41,7 +41,11 @@ int main() {
         check(set("brand","text","new text")["ok"],"Edit failed");
         check(!doc.execute({{"op","save"}})["ok"].get<bool>() && gm::readJson(file)==external,"External changes overwritten");
         check(doc.execute({{"op","reload"},{"discard",true}})["ok"] && doc.data()==external,"Explicit reload failed");
-        check(!doc.execute({{"op","remove"},{"id","editor"}})["ok"].get<bool>(),"Root deletion allowed");
+        const auto guardedData=doc.data();const auto guardedRevision=doc.revision();const auto guardedSelection=doc.selected();
+        for(const auto* op:{"remove","duplicate"}) {
+            check(!doc.execute({{"op",op},{"id","editor"}})["ok"].get<bool>(),"Root removal/duplication allowed");
+            check(doc.data()==guardedData&&doc.revision()==guardedRevision&&doc.selected()==guardedSelection,"Rejected root edit changed document state");
+        }
         auto node=Json{{"id","test_button"},{"type","button"},{"x",100},{"y",100},{"w",80},{"h",30},{"text","test"}};
         check(doc.execute({{"op","add"},{"parent","editor"},{"node",node}})["ok"],"Add failed");
         check(!doc.execute({{"op","add"},{"parent","editor"},{"node",node}})["ok"].get<bool>(),"Duplicate id accepted");

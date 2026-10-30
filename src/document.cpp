@@ -157,7 +157,7 @@ Json Document::applyEdit(const Json& request) {
         applyEdit({{"op","add"},{"parent",parentId},{"node",node}}); selected_=id;
         return {{"id",id}};
     } else if(op=="duplicate") {
-        const auto id=request.at("id").get<std::string>();require(id!=data_["root"]["id"],"Cannot duplicate root");
+        const auto id=request.at("id").get<std::string>();require(id!=data_["root"]["id"].get<std::string>(),"Cannot duplicate root");
         auto* source=findNode(data_["root"],id);require(source!=nullptr,"Node not found");Json copy=*source;
         std::map<std::string,std::string> remap;int suffix=1;
         std::function<void(Json&)> rename=[&](Json& node) {auto original=node["id"].get<std::string>();std::string next;do {next=original.substr(0,65)+"_copy"+std::to_string(suffix++);} while(findNode(data_["root"],next));remap[original]=next;node["id"]=next;if(node.contains("children")) for(auto& child:node["children"]) rename(child);};
@@ -173,7 +173,7 @@ Json Document::applyEdit(const Json& request) {
         (*parent)["children"].push_back(request.at("node"));
     } else if (op=="remove") {
         const auto id=request.at("id").get<std::string>();
-        require(id!=data_["root"]["id"],"Cannot remove root");
+        require(id!=data_["root"]["id"].get<std::string>(),"Cannot remove root");
         require(removeNode(data_["root"],id),"Node not found: " + id);
     } else throw std::runtime_error("Not an editable operation: " + op);
     return {{"op",op}};
