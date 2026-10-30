@@ -67,7 +67,7 @@ Json importProjectAssets(const GameProject &p) {
         if (!item.is_regular_file())
             continue;
         auto path = item.path();
-        auto ext = path.extension().string();
+        auto ext = text(path.extension());
         if (ext != ".json" && ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".wav")
             continue;
         auto relative = std::filesystem::canonical(path).lexically_relative(root);

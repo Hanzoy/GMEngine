@@ -11,6 +11,10 @@ function Project-Send([string]$manifest,$requests){$responses=@($requests | ForE
 $created=Project-Send $projectSample @(@{op='project.create';directory=$projectFixture;name='Independent Test'})
 $projectManifest=$created.result.manifest
 Project-Check (Test-Path -LiteralPath $projectManifest) 'Create project outside engine, with Unicode and spaces'
+$unicodeUi=Join-Path $projectFixture '界面.ui.json'
+Copy-Item -LiteralPath $projectSample -Destination $unicodeUi
+$openedUi=Project-Send $projectManifest @(@{op='file.open';path=$unicodeUi},@{op='query'})
+Project-Check ($openedUi[0].result.path.Replace('\','/') -ceq $unicodeUi.Replace('\','/')) 'CLI returns Unicode file paths as UTF-8'
 $initial=Project-Send $projectManifest @(@{op='project.query'})
 Project-Check ($initial.result.components.Count -eq 9 -and $initial.result.systems.Count -eq 3) 'Precompiled template module registers without requiring a build'
 $template=Project-Send $projectManifest @(@{op='preview.run'},@{op='runtime.step';frames=6;x=1},@{op='preview.stop'})

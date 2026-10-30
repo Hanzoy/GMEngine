@@ -1,4 +1,5 @@
 #include "document.hpp"
+#include "path_text.hpp"
 #include "editor_layout.hpp"
 #include "editor_documents.hpp"
 #include <iostream>
@@ -71,6 +72,14 @@ int main() {
         tabs.open(file);check(tabs.tabs().size()==2 && tabs.dirty(),"Reopening a tab discarded state");
         bool rejected=false;try {tabs.close();} catch(...) {rejected=true;}check(rejected && tabs.tabs().size()==2,"Close discarded unsaved tab");
         check(tabs.execute({{"op","undo"}})["ok"] && !tabs.dirty(),"Tab switch lost undo history");tabs.close();check(tabs.tabs().size()==1,"Tab close failed");
+        const auto unicodeFile=dir/std::filesystem::path(u8"项目 \U0001f680/界面 \U0001f680.ui.json");
+        gm::writeJsonAtomic(unicodeFile,original);gm::Document unicodeDoc(unicodeFile);
+        check(unicodeDoc.execute({{"op","set"},{"id","brand"},{"property","text"},{"value","Unicode path"}})["ok"],"Unicode-path edit failed");
+        check(unicodeDoc.execute({{"op","save"}})["ok"]&&gm::readJson(unicodeFile)==unicodeDoc.data(),"Unicode-path save/read failed");
+        check(unicodeDoc.history().back()=="Saved "+gm::pathText(unicodeFile.filename()),"History path is not UTF-8");
+        auto missing=unicodeFile.parent_path()/std::filesystem::path(u8"缺失 \U0001f680.json");bool missingRejected=false;
+        try{gm::readJson(missing);}catch(const std::exception& e){missingRejected=std::string(e.what()).find(gm::pathText(missing))!=std::string::npos;Json({{"error",e.what()}}).dump();}
+        check(missingRejected,"Missing Unicode file lost its UTF-8 error path");
         std::cout<<"PASS: responsive panel bounds, document validation, atomic edits/batches, undo/redo, UTF-8 persistence, revision and disk conflicts, selection integrity\n";
         std::filesystem::remove_all(dir); return 0;
     } catch(const std::exception& e) { std::cerr<<e.what()<<"\nTest artifacts: "<<dir<<'\n'; return 1; }

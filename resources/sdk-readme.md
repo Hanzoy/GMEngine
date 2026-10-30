@@ -1,4 +1,6 @@
-# GM Engine 0.8.4
+# GM Engine 0.8.5
+
+0.8.5 修复新版 MSVC 的 C++20 编译兼容性和英文 Windows 的中文路径问题。日志、CLI 返回的文件路径统一为 UTF-8；文件操作使用原生路径。SDK 保持 ABI 9。
 
 当前 SDK 为 ABI 9，旧游戏模块需重新编译。新增 Frame::input（设计坐标键鼠快照）、Context::draw（有界 Canvas 命令）、runtime.input / runtime.canvas；Player 在后台继续模拟，最小化时不渲染。0.8.2 的 ABI 8 描述属于下方历史记录。
 

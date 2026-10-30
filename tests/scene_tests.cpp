@@ -14,6 +14,10 @@ int main(int argc,char** argv){std::filesystem::path temp;
         const auto root=std::filesystem::path(GM_SOURCE_DIR);
         auto source=gm::readJson(root/"sdk/templates/Basic/assets/main.scene.json");
         temp=std::filesystem::temp_directory_path()/("gm-scene-contract-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));std::filesystem::create_directories(temp);
+        const auto unicodeModule=temp/std::filesystem::path(u8"模块 \U0001f680.dll");std::filesystem::copy_file(argv[1],unicodeModule);
+        {gm::GameRegistry unicodeRegistry;unicodeRegistry.load(unicodeModule);check(unicodeRegistry.fingerprint()==registry->fingerprint(),"Unicode-path module load changed schema");}
+        gm::writeJsonAtomic(temp/"game.gmproject",{{"format","gm.project"},{"version",1},{"name","Unicode project"},{"entry","assets/场景 \U0001f680.scene.json"},{"module","模块 \U0001f680.dll"}});
+        auto unicodeProject=gm::readProject(temp/"game.gmproject");check(unicodeProject.module==unicodeModule,"Unicode project paths did not round-trip");
         auto hud=gm::readJson(root/"tests/fixtures/ui/counter.ui.json");hud["root"]["w"]=1280;hud["root"]["h"]=720;gm::writeJsonAtomic(temp/"hud.ui.json",hud);
         source["ui"]={{"source","hud.ui.json"},{"bindings",gm::Json::array({{{"node","count"},{"entity","player"},{"component","game.Mover"},{"field","speed"},{"kind","number.text"}},{{"node","add"},{"entity","player"},{"component","game.Mover"},{"field","speed"},{"kind","number.change"},{"amount",10}}})}};
         auto scene=gm::compileScene(source,temp);auto bytes=gm::encodeScene(scene);check(gm::encodeScene(gm::decodeScene(bytes))==bytes,"Binary roundtrip");

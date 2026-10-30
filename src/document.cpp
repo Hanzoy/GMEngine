@@ -1,4 +1,5 @@
 #include "document.hpp"
+#include "path_text.hpp"
 #include "scene_authoring.hpp"
 #include <fstream>
 #include <set>
@@ -69,7 +70,7 @@ bool removeNode(Json& node, const std::string& id) {
 }
 Json readJson(const std::filesystem::path& path) {
     std::ifstream stream(path, std::ios::binary);
-    require(bool(stream), "Cannot read: " + path.string());
+    require(bool(stream), "Cannot read: " + pathText(path));
     require(std::filesystem::file_size(path) <= 4*1024*1024, "JSON file exceeds 4 MiB");
     return Json::parse(stream);
 }
@@ -130,7 +131,7 @@ Json commandSchema() {
     };
 }
 Document::Document(std::filesystem::path path) : path_(std::filesystem::absolute(path)), data_(readJson(path_)), saved_(data_) {
-    validateDocument(data_); if(isScene(data_)) ensureSelection();else selected_ = data_["root"]["id"].get<std::string>(); record("Opened " + path_.filename().string());
+    validateDocument(data_); if(isScene(data_)) ensureSelection();else selected_ = data_["root"]["id"].get<std::string>(); record("Opened " + pathText(path_.filename()));
 }
 void Document::record(const std::string& text) { log_.push_back(text); if (log_.size()>100) log_.erase(log_.begin()); }
 void Document::ensureSelection() { if(isScene(data_)){if(!findEntity(data_,selected_)) selected_=data_["entities"].empty()?"":data_["entities"][0]["id"].get<std::string>();return;}if (!findNode(data_["root"], selected_)) selected_ = data_["root"]["id"].get<std::string>(); }
@@ -216,7 +217,7 @@ Json Document::execute(const Json& request) {
             data_=std::move(target); selected_=std::move(snapshot.selected); ++revision_; record(op);
         } else if (op=="save") {
             require(std::filesystem::exists(path_) && readJson(path_)==saved_,"File changed externally; reload before saving");
-            validateDocument(data_); writeJsonAtomic(path_,data_); saved_=data_; record("Saved " + path_.filename().string());
+            validateDocument(data_); writeJsonAtomic(path_,data_); saved_=data_; record("Saved " + pathText(path_.filename()));
         } else if (op=="reload") {
             require(!dirty() || request.value("discard",false),"Unsaved edits; use discard:true to reload");
             auto next=readJson(path_); validateDocument(next); data_=std::move(next); saved_=data_; undo_.clear(); redo_.clear(); ++revision_; ensureSelection(); record("Reloaded from disk");

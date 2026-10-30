@@ -1,4 +1,5 @@
 #include "project.hpp"
+#include "path_text.hpp"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -24,7 +25,7 @@ public:
             document_=std::make_unique<gm::Document>(doc.path());gm::Json result=gm::projectDescription(project_);if(op=="project.build")gm::compileProject(project_);if(op=="project.package")result=gm::packageProject(project_);return {{"ok",true},{"result",result}};
         }
         if(op=="project.open"){if(runtime_||doc.dirty())throw std::runtime_error("Stop and save before opening another project");auto path=utfpath(request.at("path").get<std::string>());auto previous=gm::gameRegistry();try{auto nextProject=gm::activateProject(path);auto nextDoc=std::make_unique<gm::Document>(path);project_=std::move(nextProject);document_=std::move(nextDoc);}catch(...){gm::useGameRegistry(previous);throw;}return {{"ok",true},{"result",gm::projectDescription(project_)}};}
-        if(op=="file.open"){if(runtime_)throw std::runtime_error("Stop before opening a resource");if(doc.dirty()&&!request.value("discard",false))throw std::runtime_error("Unsaved edits; save or pass discard:true");auto path=utfpath(request.at("path").get<std::string>());if(path.is_relative())path=(project_.valid()?project_.root:doc.path().parent_path())/path;auto next=std::make_unique<gm::Document>(path);document_=std::move(next);return {{"ok",true},{"result",{{"path",path.generic_string()}}}};}
+        if(op=="file.open"){if(runtime_)throw std::runtime_error("Stop before opening a resource");if(doc.dirty()&&!request.value("discard",false))throw std::runtime_error("Unsaved edits; save or pass discard:true");auto path=utfpath(request.at("path").get<std::string>());if(path.is_relative())path=(project_.valid()?project_.root:doc.path().parent_path())/path;auto next=std::make_unique<gm::Document>(path);document_=std::move(next);return {{"ok",true},{"result",{{"path",gm::pathText(path)}}}};}
         if(op=="preview.run"){if(runtime_)throw std::runtime_error("Scene already running");runtime_=std::make_unique<gm::SceneRuntime>(gm::compileScene(doc.data(),doc.path().parent_path()));paused_=true;return gm::runtimeState(*runtime_,paused_,doc.revision(),doc.dirty());}
         if(op=="preview.stop"){runtime_.reset();return {{"ok",true},{"revision",doc.revision()},{"dirty",doc.dirty()}};}
         if(op=="runtime.query"||op=="runtime.step"||op=="preview.step"||op=="runtime.activate"||op=="preview.pause"){

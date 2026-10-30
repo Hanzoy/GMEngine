@@ -1,4 +1,5 @@
 #include "game_registry.hpp"
+#include "path_text.hpp"
 #include "storage.hpp"
 #include <algorithm>
 #include <bit>
@@ -56,7 +57,7 @@ GameRegistry::~GameRegistry(){
 }
 void GameRegistry::load(const std::filesystem::path& path){
     check(!library_,"A registry owns exactly one project module");original_=std::filesystem::canonical(path);
-    shadow_=std::filesystem::temp_directory_path()/("gm-module-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())+path.extension().string());
+    shadow_=std::filesystem::temp_directory_path()/("gm-module-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));shadow_+=path.extension();
     std::filesystem::copy_file(original_,shadow_);
 #ifdef _WIN32
     library_=LoadLibraryExW(shadow_.c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
@@ -64,7 +65,7 @@ void GameRegistry::load(const std::filesystem::path& path){
 #else
     library_=dlopen(shadow_.c_str(),RTLD_NOW|RTLD_LOCAL);auto entry=library_?reinterpret_cast<sdk::Entry>(dlsym(library_,"gm_game_module")):nullptr;
 #endif
-    check(entry!=nullptr,"Cannot load native game module / gm_game_module export: "+path.string());
+    check(entry!=nullptr,"Cannot load native game module / gm_game_module export: "+pathText(path));
     const auto* module=entry(sdk::AbiVersion);check(module&&module->abi==sdk::AbiVersion&&module->structSize==sizeof(sdk::Module),"Game module SDK ABI mismatch; rebuild the project");
     check(validName(module->name)&&module->componentCount<=256&&module->systemCount<=128,"Invalid game module descriptor");
     check(!module->componentCount||module->components,"Missing module components");check(!module->systemCount||module->systems,"Missing module systems");name_=module->name;
