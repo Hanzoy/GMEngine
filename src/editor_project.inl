@@ -32,7 +32,34 @@ void projectMenu(){HMENU menu=CreatePopupMenu();std::vector<Json> commands;auto 
     POINT p{LONG(mouseX_),LONG(mouseY_+12*scale_)};ClientToScreen(window_,&p);auto choice=TrackPopupMenu(menu,TPM_RETURNCMD|TPM_LEFTALIGN,p.x,p.y,0,window_,nullptr);DestroyMenu(menu);if(choice>0&&choice<=commands.size())command(commands[choice-1]);
 }
 void inspectorTabs(Rect r){renderer_->rect({r.x,r.y,r.w,30*scale_},C("#282B30"));float x=r.x+5*scale_,width=(r.w-10*scale_)/4;for(const auto& [name,label]:std::vector<std::pair<std::string,std::string>>{{"components","组件"},{"systems","Systems"},{"project","项目"},{"profiler","性能"}}){button({x,r.y+2*scale_,width-2*scale_,26*scale_},label,{{"op","view.inspector"},{"page",name}},"",inspectorPage_==name);x+=width;}}
-void drawProfiler(Rect r){float x=r.x+14*scale_,y=r.y+44*scale_,w=r.w-28*scale_;text(x,y,"运行时性能",16,ink(),w);y+=34*scale_;if(!scenePlay_){text(x,y,"运行场景后查看每步模拟与 System 耗时。",12,muted(),w);return;}auto stats=scenePlay_->stats();auto number=[](double v){char buffer[48];std::snprintf(buffer,sizeof(buffer),"%.3f ms",v);return std::string(buffer);};for(const auto& line:std::vector<std::string>{"模拟: "+number(stats.simulationMs),"实体: "+std::to_string(stats.entities)+"   查询缓存: "+std::to_string(stats.queries),"组件有效数据: "+std::to_string(stats.componentBytes)+" B","积压丢弃: "+std::to_string(stats.droppedSeconds)+" s"}){text(x,y,line,12,ink(),w);y+=25*scale_;}y+=14*scale_;for(const auto& system:stats.systems){text(x,y,system.name,12,ink(),w);y+=22*scale_;text(x,y,number(system.milliseconds)+"   峰值 "+number(system.maximum),11,muted(),w);y+=35*scale_;}text(x,y,"组件数据不包含 Flecs 分配器与纹理内存。",11,muted(),w);}
+void drawProfiler(Rect r) {
+    Rect body{r.x+14*scale_,r.y+40*scale_,r.w-28*scale_,r.h-48*scale_};
+    if(!scenePlay_){text(body.x,body.y,"运行场景后查看每步模拟与 System 耗时。",12,muted(),body.w);return;}
+    auto stats=scenePlay_->stats();
+    auto number=[](double v){char buffer[48];std::snprintf(buffer,sizeof(buffer),"%.3f ms",v);return std::string(buffer);};
+    std::vector<std::string> lines{
+        "模拟: "+number(stats.simulationMs),
+        "P50: "+number(stats.p50Ms)+"   P95: "+number(stats.p95Ms),
+        "采样: "+std::to_string(stats.sampledFrames)+" / 120 帧",
+        "碰撞: "+number(stats.collisionMs),
+        "提取: "+number(stats.extractionMs)+"   UI: "+number(stats.uiMs),
+        "实体: "+std::to_string(stats.entities)+"   查询缓存: "+std::to_string(stats.queries),
+        "组件有效数据: "+std::to_string(stats.componentBytes)+" B",
+        "积压丢弃: "+std::to_string(stats.droppedSeconds)+" s"};
+    float height=34+float(lines.size())*25+14+float(stats.systems.size())*78+28;
+    inspectorScroll_=std::clamp(inspectorScroll_,0.f,std::max(0.f,height-body.h/scale_));
+    float y=body.y-inspectorScroll_*scale_;renderer_->clip(body);
+    text(body.x,y,"运行时性能",16,ink(),body.w);y+=34*scale_;
+    for(const auto& line:lines){text(body.x,y,line,12,ink(),body.w);y+=25*scale_;}
+    y+=14*scale_;
+    for(const auto& system:stats.systems){
+        text(body.x,y,system.name,12,ink(),body.w);y+=22*scale_;
+        text(body.x,y,"当前 "+number(system.milliseconds)+"   峰值 "+number(system.maximum),11,muted(),body.w);y+=21*scale_;
+        text(body.x,y,"平均 "+number(system.average)+"   次数 "+std::to_string(system.calls),11,muted(),body.w);y+=35*scale_;
+    }
+    text(body.x,y,"组件数据不包含 Flecs 分配器与纹理内存。",11,muted(),body.w);
+    scrollbar(body,int(height),int(body.h/scale_),int(inspectorScroll_));renderer_->clip(r);
+}
 void drawProjectInspector(Rect r){float x=r.x+14*scale_,y=r.y+44*scale_,w=r.w-28*scale_;text(x,y,gameProject_.valid()?gameProject_.name:"尚未打开游戏项目",16,ink(),w);y+=36*scale_;for(const auto& [label,value]:std::vector<std::pair<std::string,std::string>>{{"项目目录",pathText(gameProject_.root)},{"入口场景",gameProject_.valid()?pathText(gameProject_.entry.lexically_relative(gameProject_.root)):""},{"原生模块",gm::gameRegistry()->name()},{"组件 / System",std::to_string(gm::sceneComponents().size())+" / "+std::to_string(gm::gameRegistry()->systems().size())}}){text(x,y,label,12,muted(),w);y+=21*scale_;text(x,y,value,12,ink(),w);y+=35*scale_;}
     bool ready=gameProject_.valid()&&!projectBusy()&&!playing()&&allSaved();button({x,y,w,30*scale_},"构建项目",{{"op","project.build"}},"构建 C++ 模块和已保存的入口场景",false,ready);y+=38*scale_;button({x,y,w,30*scale_},"生成运行包",{{"op","project.package"}},"输出到项目的 dist 目录",false,ready);y+=43*scale_;if(projectBusy()){text(x,y,projectTaskText(),12,ink(),w);y+=30*scale_;button({x,y,w,30*scale_},"取消当前任务",{{"op","project.task.cancel"}},"停止构建进程及其子进程",false,!cancellingProjectTask_);}else text(x,y,"修改脚本后，停止并保存，再构建项目。",12,muted(),w);}
 void drawSystemsInspector(Rect r){Rect body{r.x+12*scale_,r.y+40*scale_,r.w-24*scale_,r.h-48*scale_};auto systems=gm::systemSchema(doc_.data());float height=58+float(systems.size())*94;inspectorScroll_=std::clamp(inspectorScroll_,0.f,std::max(0.f,height-body.h/scale_));float y=body.y-inspectorScroll_*scale_;auto start=hits_.size();renderer_->clip(body);text(body.x,y,"执行顺序 · 当前场景",14,ink(),body.w);y+=25*scale_;text(body.x,y,"开关写入场景，支持撤销。",11,muted(),body.w);y+=32*scale_;

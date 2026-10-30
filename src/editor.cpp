@@ -38,7 +38,7 @@ struct Edit { std::string node,property; std::wstring buffer,original; size_t cu
 struct FileItem { std::filesystem::path path; std::string label; int depth; bool folder; };
 std::string nameOf(const Json& node) { return node.value("name",node.at("id").get<std::string>()); }
 std::string kindName(const std::string& type) {
-    if(type=="image") return "图片";
+    if(type=="image") return "图片";if(type=="list")return "滚动列表";
     static const std::map<std::string,std::string> names={{"panel","面板"},{"button","按钮"},{"label","文本"},{"tree","场景面板"},{"files","文件系统"},{"viewport","视口"},{"inspector","检查器"},{"toolbar","工具栏"},{"menubar","菜单栏"},{"output","输出"},{"status","状态栏"}};
     auto it=names.find(type); return it==names.end()?type:it->second;
 }
@@ -92,7 +92,7 @@ public:
             if(op.starts_with("runtime.")&&op!="runtime.step"&&op!="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");auto result=gm::runtimeCommand(*scenePlay_,request,gameProject_);if(op=="runtime.load"||op=="runtime.scene.switch")sceneView_->clear();requestFrame();return result;}
             if(op=="preview.pause"){if(!scenePlay_)throw std::runtime_error("Scene is not running");scenePaused_=request.value("paused",!scenePaused_);return sceneRuntimeState();}
             if(op=="preview.step"||op=="runtime.step"){if(!scenePlay_||!scenePaused_)throw std::runtime_error("Pause the scene before stepping");auto frames=request.value("frames",1);if(frames<1||frames>10000)throw std::runtime_error("frames must be 1..10000");for(int i=0;i<frames;++i)scenePlay_->tick(1.f/60,{request.value("x",0.f),request.value("y",0.f)});return sceneRuntimeState();}
-            if(op=="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");if(!scenePlay_->activateUi(request.at("node").get<uint32_t>()))throw std::runtime_error("UI action not found");return sceneRuntimeState();}
+            if(op=="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");if(!scenePlay_->activateUi(request.at("node").get<uint32_t>(),request.value("row",-1)))throw std::runtime_error("UI action not found");return sceneRuntimeState();}
             if(request.contains("expected_revision") && request["expected_revision"]!=doc_.revision()) throw std::runtime_error("Revision conflict; query again");
             if(op=="menu") { showMenu(request.at("name").get<std::string>()); return state(); }
             if(op=="dialog.open") { openDialog(false); return state(); }
@@ -199,6 +199,11 @@ public:
         if(title!=lastTitle_) { SetWindowTextW(window_,title.c_str());lastTitle_=title; }
     }
     void gameKey(uint32_t key,bool repeat){if(gameFocus_)gameInput_.key(key,repeat);}
+    bool gameTouch(WPARAM p,bool down,bool began){
+        POINTER_INFO info{};if(!GetPointerInfo(GET_POINTERID_WPARAM(p),&info)||info.pointerType!=PT_TOUCH)return false;
+        if(began){auto point=info.ptPixelLocation;ScreenToClient(window_,&point);setGameFocus(scenePlay_&&sceneGameView_&&canvasArea_.contains(float(point.x),float(point.y)));}
+        if(!gameFocus_)return false;requestFrame();return gameInput_.pointer(window_,p,down);
+    }
     bool gameRight(bool down){if(gameFocus_)gameInput_.button(2,down);return gameFocus_;}
     void gameBlur(){gameInput_.clear();}
     void mouseDown(float x,float y,bool doubleClick=false,bool middle=false) {
@@ -252,7 +257,7 @@ public:
     void mouseUp() {
         if(gameFocus_){gameInput_.button(1,false);gameInput_.button(4,false);}
         requestFrame();
-        if(scenePlay_&&scenePressed_!=gm::NoIndex){auto node=scenePressed_;scenePressed_=gm::NoIndex;ReleaseCapture();if(sceneView_->hitUi(*scenePlay_,mouseX_,mouseY_)==node)command({{"op","runtime.activate"},{"node",node}});return;}
+        if(scenePlay_&&scenePressed_!=gm::NoIndex){scenePressed_=gm::NoIndex;ReleaseCapture();return;}
         const auto mode=dragMode_;dragMode_.clear();ReleaseCapture();
         if(mode=="scene-node"&&(dx_!=0||dy_!=0)){command({{"op","batch"},{"expected_revision",dragRevision_},{"commands",Json::array({{{"op","set"},{"id",dragId_},{"property","Transform2D.x"},{"value",nodeX_+dx_}},{{"op","set"},{"id",dragId_},{"property","Transform2D.y"},{"value",nodeY_+dy_}}})}});return;}
         if((mode=="node" || mode=="resize") && (dx_!=0 || dy_!=0)) {
@@ -493,7 +498,7 @@ private:
             item(L"编辑编辑器界面...",{{"op","open-editor"}});item(L"应用当前编辑器界面\tCtrl+Shift+F5",{{"op","apply"}},rootId()=="editor");separator();item(L"恢复默认编辑器界面\tF6",{{"op","recover"}});
         } else if(name=="create" || name=="node") {
             const auto* selected=selectedNode();auto parent=selected && selected->at("type")=="panel"?doc_.selected():rootId();
-            item(L"面板",{{"op","create"},{"type","panel"},{"parent",parent}});item(L"文本",{{"op","create"},{"type","label"},{"parent",parent}});item(L"按钮",{{"op","create"},{"type","button"},{"parent",parent}});
+            item(L"面板",{{"op","create"},{"type","panel"},{"parent",parent}});item(L"文本",{{"op","create"},{"type","label"},{"parent",parent}});item(L"按钮",{{"op","create"},{"type","button"},{"parent",parent}});item(L"滚动列表",{{"op","create"},{"type","list"},{"parent",parent}});
             item(L"图片",{{"op","create"},{"type","image"},{"parent",parent}});
             if(name=="node") {separator();item(L"复制节点\tCtrl+D",{{"op","duplicate"},{"id",doc_.selected()}},!assetInspection_ && doc_.selected()!=rootId());item(L"删除节点\tDelete",{{"op","remove"},{"id",doc_.selected()}},!assetInspection_ && doc_.selected()!=rootId());}
         } else if(name=="asset") {
@@ -514,7 +519,7 @@ private:
         if(key=="source") return "";if(key=="fit") return "contain";if(key=="tint") return "#FFFFFF";if(key=="opacity") return 1;
         if(key=="name") return nameOf(node);
         if(key=="color") return "#34373D";if(key=="textColor") return "#DFE7F2";
-        if(key=="fontSize") return 14;if(key=="visible") return true;if(key=="text") return "";return 0;
+        if(key=="fontSize") return 14;if(key=="visible") return true;if(key=="text"||key=="bindText"||key=="event") return "";if(key=="layout")return "absolute";if(key=="columns")return 1;if(key=="rowHeight")return 28;if(key=="fillX"||key=="fillY")return false;return 0;
     }
     void startEdit(const std::string& key) {
         if(projectBusy()&&!key.starts_with("$"))return;
@@ -539,7 +544,7 @@ private:
         const auto edit=*edit_;const auto text=gm::utf8(edit.buffer);Json value;
         try {
             if(sceneMode()&&edit.property.rfind('.')!=std::string::npos){auto dot=edit.property.rfind('.');const auto& def=gm::sceneComponent(edit.property.substr(0,dot));bool string=false;for(const auto& f:def.fields)if(f.key==edit.property.substr(dot+1))string=f.initial.is_string();value=string?Json(text):Json::parse(text);}
-            else if(edit.property=="name" || edit.property=="text" || edit.property=="color" || edit.property=="textColor" || edit.property=="source" || edit.property=="tint") value=text;
+            else if(edit.property=="name" || edit.property=="text" || edit.property=="color" || edit.property=="textColor" || edit.property=="source" || edit.property=="tint" || edit.property=="layout" || edit.property=="bindText" || edit.property=="event") value=text;
             else value=Json::parse(text);
         } catch(...) {fail("请输入有效的数值。");return false;}
         auto response=command({{"op","set"},{"id",edit.node},{"property",edit.property},{"value",value},{"expected_revision",edit.revision}});
@@ -851,7 +856,7 @@ private:
             if(group({body.x,y,body.w,27*scale_},"外观")) {y+=37*scale_;colorProperty({body.x,y,body.w,25*scale_},*node,"color","背景");y+=43*scale_;}
             else y+=37*scale_;
         }
-        if(type=="label" || type=="button") {
+        if(type=="label" || type=="button" || type=="list") {
             if(group({body.x,y,body.w,27*scale_},"文字")) {
                 y+=37*scale_;property({body.x,y,body.w,25*scale_},*node,"text","内容");y+=34*scale_;
                 property({body.x,y,body.w,25*scale_},*node,"fontSize","字号");y+=34*scale_;
@@ -871,6 +876,11 @@ private:
                 text(body.x,y,"0 为透明，1 为不透明",11,muted(),body.w);y+=26*scale_;
             } else y+=37*scale_;
         }
+        if(group({body.x,y,body.w,27*scale_},"布局与事件")){
+            y+=37*scale_;
+            for(const auto &[key,label]:std::initializer_list<std::pair<const char*,const char*>>{{"layout","排列"},{"padding","内边距"},{"gap","间距"},{"anchorX","锚点 X"},{"anchorY","锚点 Y"},{"pivotX","轴心 X"},{"pivotY","轴心 Y"},{"fillX","填充宽"},{"fillY","填充高"},{"columns","网格列"},{"rowHeight","行高"},{"bindText","文字绑定"},{"event","点击事件"}}){property({body.x,y,body.w,25*scale_},*node,key,label);y+=34*scale_;}
+            text(body.x,y,"排列：absolute / row / column / grid",11,muted(),body.w);y+=28*scale_;
+        }else y+=37*scale_;
         auto clipped=[&](Rect box) {
             float x=std::max(box.x,body.x),y=std::max(box.y,body.y);
             return Rect{x,y,std::max(0.f,std::min(box.x+box.w,body.x+body.w)-x),std::max(0.f,std::min(box.y+box.h,body.y+body.h)-y)};
@@ -952,6 +962,7 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wp,LPARAM lp) {
             case WM_LBUTTONUP:case WM_MBUTTONUP:app->mouseUp();return 0;
             case WM_CAPTURECHANGED:app->captureLost();return 0;
             case WM_MOUSEWHEEL: {POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(window,&p);app->wheel(GET_WHEEL_DELTA_WPARAM(wp),float(p.x),float(p.y));return 0;}
+            case WM_POINTERDOWN:case WM_POINTERUPDATE:case WM_POINTERUP:if(app->gameTouch(wp,message!=WM_POINTERUP,message==WM_POINTERDOWN))return 0;break;
             case WM_KEYDOWN:app->gameKey(uint32_t(wp),(lp & (1ll<<30))!=0);app->key(wp);return 0;
             case WM_CHAR:app->input(wchar_t(wp));return 0;
             case WM_IME_COMPOSITION:

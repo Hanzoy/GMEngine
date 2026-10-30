@@ -1,5 +1,6 @@
 #include "ui_compiler.hpp"
 #include "image_import.hpp"
+#include <gm/game.hpp>
 #include <cmath>
 #include <functional>
 #include <unordered_map>
@@ -24,7 +25,7 @@ CompiledUi compileUi(const Json& source,const std::filesystem::path& sourceDirec
     std::function<void(const Json&,uint32_t)> flatten=[&](const Json& src,uint32_t parent) {
         const auto index=uint32_t(asset.nodes.size());const auto type=src.at("type").get<std::string>();
         UiNode node;
-        if(type=="panel") node.kind=UiKind::Panel;else if(type=="label") node.kind=UiKind::Label;else if(type=="button") node.kind=UiKind::Button;
+        if(type=="panel") node.kind=UiKind::Panel;else if(type=="label") node.kind=UiKind::Label;else if(type=="button") node.kind=UiKind::Button;else if(type=="list") node.kind=UiKind::List;
         else if(type=="image") {
             node.kind=UiKind::Image;
             try {node.image=imageIndex(src.value("source",std::string()));}
@@ -37,6 +38,10 @@ CompiledUi compileUi(const Json& source,const std::filesystem::path& sourceDirec
         node.color=packedColor(src.value("color",std::string("#182538")));node.textColor=packedColor(src.value("textColor",std::string("#DFE7F2")));
         node.fontSize=src.value("fontSize",14.f);node.visible=src.value("visible",true);node.text=src.value("text",std::string());
         node.integerText=parseCounter(node.text,node.integerValue);
+        node.id=src.at("id").get<std::string>();node.bindText=src.value("bindText",std::string());
+        if(src.contains("event")&&!src.at("event").get<std::string>().empty())node.event=sdk::id(src.at("event").get<std::string>().c_str());
+        const auto layout=src.value("layout",std::string("absolute"));node.layout=layout=="row"?UiLayout::Row:layout=="column"?UiLayout::Column:layout=="grid"?UiLayout::Grid:UiLayout::Absolute;
+        node.padding=src.value("padding",0.f);node.gap=src.value("gap",0.f);node.anchorX=src.value("anchorX",0.f);node.anchorY=src.value("anchorY",0.f);node.pivotX=src.value("pivotX",0.f);node.pivotY=src.value("pivotY",0.f);node.rowHeight=src.value("rowHeight",28.f);node.columns=src.value("columns",1u);node.fillX=src.value("fillX",false);node.fillY=src.value("fillY",false);
         ids.emplace(src["id"].get<std::string>(),index);asset.nodes.push_back(std::move(node));sources.push_back(&src);
         if(src.contains("children")) for(const auto& child:src["children"]) flatten(child,index);
         asset.nodes[index].subtreeEnd=uint32_t(asset.nodes.size());

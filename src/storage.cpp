@@ -1,4 +1,8 @@
 #include "storage.hpp"
+#include "network.hpp"
+#include "game_jobs.hpp"
+#include "audio.hpp"
+#include "resources.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -216,6 +220,10 @@ const sdk::HostServices &hostServices() {
         }};
     static const sdk::HostServices host{
         sizeof(sdk::HostServices), 1, [](sdk::TypeId id, uint32_t version) -> const void * {
+            if(id == sdk::NetworkService::Id && version == sdk::NetworkService::Version) return &networkService();
+            if(id == sdk::JobService::Id && version == sdk::JobService::Version) return &jobService();
+            if(id == sdk::AudioService::Id && version == sdk::AudioService::Version) return &audioService();
+            if(id == sdk::ResourceService::Id && version == sdk::ResourceService::Version) return &resourceService();
             return id == sdk::StorageService::Id && version == 1 ? &storage : nullptr;
         }};
     return host;

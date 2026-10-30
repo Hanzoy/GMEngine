@@ -1,5 +1,11 @@
 #include "renderer.hpp"
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <codecvt>
+#include <locale>
+#include "portable_font.hpp"
+#endif
 #include <bx/math.h>
 #include <algorithm>
 #include <stdexcept>
@@ -21,20 +27,33 @@ uint32_t color(const std::string& hex) {
     return ((v>>16)&255) | (v&0xff00) | ((v&255)<<16) | 0xff000000;
 }
 std::wstring wide(const std::string& text) {
+#ifdef _WIN32
     if(text.empty()) return {};
     int n=MultiByteToWideChar(CP_UTF8,0,text.data(),int(text.size()),nullptr,0);
     std::wstring out(n,L'\0'); MultiByteToWideChar(CP_UTF8,0,text.data(),int(text.size()),out.data(),n); return out;
+#else
+    return std::wstring_convert<std::codecvt_utf8<wchar_t>>{}.from_bytes(text);
+#endif
 }
 std::string utf8(const std::wstring& text) {
+#ifdef _WIN32
     if(text.empty()) return {};
     int n=WideCharToMultiByte(CP_UTF8,0,text.data(),int(text.size()),nullptr,0,nullptr,nullptr);
     std::string out(n,'\0'); WideCharToMultiByte(CP_UTF8,0,text.data(),int(text.size()),out.data(),n,nullptr,nullptr); return out;
+#else
+    return std::wstring_convert<std::codecvt_utf8<wchar_t>>{}.to_bytes(text);
+#endif
 }
 Renderer::Renderer(void* window,uint32_t width,uint32_t height,bgfx::CallbackI* callback):width_(width),height_(height) {
-    bgfx::Init init; init.type=bgfx::RendererType::Direct3D11;
+    bgfx::Init init;
+#ifdef _WIN32
+    init.type=bgfx::RendererType::Direct3D11;
+#else
+    init.type=bgfx::RendererType::OpenGLES;
+#endif
     init.callback=callback;
     init.swapChain.nwh=window; init.swapChain.width=width; init.swapChain.height=height; init.reset=BGFX_RESET_VSYNC;
-    if(!bgfx::init(init)) throw std::runtime_error("bgfx D3D11 initialization failed");
+    if(!bgfx::init(init)) throw std::runtime_error("bgfx platform renderer initialization failed");
     layout_.begin().add(bgfx::Attrib::Position,2,bgfx::AttribType::Float).add(bgfx::Attrib::TexCoord0,2,bgfx::AttribType::Float).add(bgfx::Attrib::Color0,4,bgfx::AttribType::Uint8,true).end();
     program_=bgfx::createProgram(bgfx::createEmbeddedShader(shaders,init.type,"vs_ocornut_imgui"),bgfx::createEmbeddedShader(shaders,init.type,"fs_ocornut_imgui"),true);
     if(!bgfx::isValid(program_)) { bgfx::shutdown(); throw std::runtime_error("Cannot create UI shader program"); }
@@ -141,6 +160,7 @@ void Renderer::sprite(const std::array<float,8>& points,bgfx::TextureHandle text
 }
 Renderer::Texture Renderer::makeText(const std::string& s,int size) {
     ++stats_.textUploads;
+#ifdef _WIN32
     const auto ws=wide(s); HDC dc=CreateCompatibleDC(nullptr);
     HFONT font=CreateFontW(-size,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,ANTIALIASED_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
     auto oldFont=SelectObject(dc,font); SIZE measure{}; GetTextExtentPoint32W(dc,ws.c_str(),int(ws.size()),&measure);
@@ -152,6 +172,9 @@ Renderer::Texture Renderer::makeText(const std::string& s,int size) {
     auto* rgba=static_cast<uint32_t*>(pixels); for(int i=0;i<w*h;++i) { const uint32_t a=rgba[i]&255; rgba[i]=0x00ffffff | (a<<24); }
     auto cleanup=[&](){SelectObject(dc,oldBitmap);SelectObject(dc,oldFont);DeleteObject(bitmap);DeleteObject(font);DeleteDC(dc);};
     try {auto texture=storeText(pixels,w,h);cleanup();return texture;} catch(...) {cleanup();throw;}
+#else
+    auto bitmap=rasterText(wide(s),size);return storeText(bitmap.pixels.data(),bitmap.width,bitmap.height);
+#endif
 }
 Renderer::Texture Renderer::storeText(const void* pixels,int w,int h) {
     constexpr int side=1024;
@@ -183,6 +206,7 @@ Renderer::Texture Renderer::storeText(const void* pixels,int w,int h) {
     chosen->x+=w+2;chosen->rowHeight=std::max(chosen->rowHeight,h);chosen->lastUsed=frame_;return result;
 }
 Renderer::NumberAtlas Renderer::makeNumberAtlas(int size) {
+#ifdef _WIN32
     ++stats_.textUploads;HDC dc=CreateCompatibleDC(nullptr);
     HFONT font=CreateFontW(-size,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,ANTIALIASED_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
     auto oldFont=SelectObject(dc,font);const std::wstring chars=L"0123456789-+.%";std::array<int,14> advances{};int cell=1,h=1;
@@ -195,6 +219,13 @@ Renderer::NumberAtlas Renderer::makeNumberAtlas(int size) {
     auto* rgba=static_cast<uint32_t*>(pixels);for(int i=0;i<w*h;++i) {auto a=rgba[i]&255;rgba[i]=0xffffff|(a<<24);}
     auto cleanup=[&](){SelectObject(dc,oldBitmap);SelectObject(dc,oldFont);DeleteObject(bitmap);DeleteObject(font);DeleteDC(dc);};
     try {auto texture=storeText(pixels,w,h);cleanup();return {texture,cell,advances};}catch(...){cleanup();throw;}
+#else
+    ++stats_.textUploads;const std::wstring chars=L"0123456789-+.%";std::array<int,14> advances{};std::array<FontBitmap,14> glyphs;int cell=1,h=1;
+    for(size_t i=0;i<14;++i){glyphs[i]=rasterText(chars.substr(i,1),size);advances[i]=glyphs[i].width-4;cell=std::max(cell,glyphs[i].width);h=std::max(h,glyphs[i].height);}
+    const int w=cell*14;std::vector<uint32_t> pixels(size_t(w)*h,0);
+    for(int i=0;i<14;++i)for(int y=0;y<glyphs[i].height;++y)std::copy_n(glyphs[i].pixels.data()+y*glyphs[i].width,glyphs[i].width,pixels.data()+y*w+i*cell);
+    return {storeText(pixels.data(),w,h),cell,advances};
+#endif
 }
 Renderer::NumberAtlas& Renderer::numberAtlas(int size) {
     auto it=numberAtlases_.find(size);if(it==numberAtlases_.end()) it=numberAtlases_.emplace(size,makeNumberAtlas(size)).first;return it->second;

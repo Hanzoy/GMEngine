@@ -56,7 +56,7 @@ GameRegistry::~GameRegistry(){
     if(!shadow_.empty()){std::error_code ec;std::filesystem::remove(shadow_,ec);}
 }
 void GameRegistry::load(const std::filesystem::path& path){
-    check(!library_,"A registry owns exactly one project module");original_=std::filesystem::canonical(path);
+    check(!library_&&!registered_,"A registry owns exactly one project module");original_=std::filesystem::canonical(path);
     shadow_=std::filesystem::temp_directory_path()/("gm-module-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));shadow_+=path.extension();
     std::filesystem::copy_file(original_,shadow_);
 #ifdef _WIN32
@@ -66,17 +66,21 @@ void GameRegistry::load(const std::filesystem::path& path){
     library_=dlopen(shadow_.c_str(),RTLD_NOW|RTLD_LOCAL);auto entry=library_?reinterpret_cast<sdk::Entry>(dlsym(library_,"gm_game_module")):nullptr;
 #endif
     check(entry!=nullptr,"Cannot load native game module / gm_game_module export: "+pathText(path));
+#ifdef _WIN32
+    auto extension=reinterpret_cast<sdk::ExtensionEntry>(GetProcAddress(static_cast<HMODULE>(library_),"gm_game_extensions"));
+#else
+    auto extension=reinterpret_cast<sdk::ExtensionEntry>(dlsym(library_,"gm_game_extensions"));
+#endif
+    loadStatic(entry,extension);
+}
+void GameRegistry::loadStatic(sdk::Entry entry,sdk::ExtensionEntry extension){
+    check(entry&&!registered_,"Invalid or already registered static module");registered_=true;
     const auto* module=entry(sdk::AbiVersion);check(module&&module->abi==sdk::AbiVersion&&module->structSize==sizeof(sdk::Module),"Game module SDK ABI mismatch; rebuild the project");
     check(validName(module->name)&&module->componentCount<=256&&module->systemCount<=128,"Invalid game module descriptor");
     check(!module->componentCount||module->components,"Missing module components");check(!module->systemCount||module->systems,"Missing module systems");name_=module->name;
     for(uint32_t i=0;i<module->componentCount;++i){auto d=module->components[i];check(validName(d.name)&&!std::string(d.name).starts_with("gm."),"Invalid component name / reserved gm. namespace");components_.push_back({d,sdk::id(d.name),false});}
     for(uint32_t i=0;i<module->systemCount;++i){auto d=module->systems[i];check(validName(d.name),"Invalid System name");systems_.push_back({d,sdk::id(d.name),false});}
     finalize();
-#ifdef _WIN32
-    auto extension=reinterpret_cast<sdk::ExtensionEntry>(GetProcAddress(static_cast<HMODULE>(library_),"gm_game_extensions"));
-#else
-    auto extension=reinterpret_cast<sdk::ExtensionEntry>(dlsym(library_,"gm_game_extensions"));
-#endif
     if(extension)if(const auto* extra=extension(1,&hostServices())) {
         check(extra->version==1&&extra->structSize>=sizeof(sdk::ModuleExtensions)&&extra->stateCount<=128&&(!extra->stateCount||extra->states),"Invalid module extensions");
         std::set<std::string> names;

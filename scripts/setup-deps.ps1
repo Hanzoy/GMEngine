@@ -25,3 +25,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $jsonDir 'json.hpp'))) {
 }
 Write-Host 'Pinned dependencies are ready.'
 & "$PSScriptRoot/setup-ecs.ps1"
+$audioDir = Join-Path $deps 'miniaudio'
+New-Item -ItemType Directory -Force -Path $audioDir | Out-Null
+foreach ($name in @('miniaudio.h','LICENSE')) {
+    $file = Join-Path $audioDir $name
+    if (-not (Test-Path -LiteralPath $file)) { Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mackron/miniaudio/0.11.21/$name" -OutFile $file }
+}
+if ((Get-FileHash -LiteralPath (Join-Path $audioDir 'miniaudio.h') -Algorithm SHA256).Hash -ne '6B2029714F8634C4D7C70CC042F45074E0565766113FC064F20CD27C986BE9C9') { throw 'miniaudio checksum mismatch' }

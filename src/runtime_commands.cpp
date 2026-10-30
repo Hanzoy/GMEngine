@@ -34,17 +34,36 @@ Json hubCommand(const Json &request) {
 }
 Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &project) {
     auto op = request.at("op").get<std::string>();
+    if(op=="runtime.ui.text"){run.hud().bindText(request.at("name").get<std::string>(),request.at("text").get<std::string>());return {{"ok",true}};}
+    if(op=="runtime.ui.visible"){run.hud().setVisible(run.hud().find(request.at("node").get<std::string>()),request.at("visible").get<bool>());return {{"ok",true}};}
+    if(op=="runtime.ui.scroll"){run.hud().scroll(run.hud().find(request.at("node").get<std::string>()),request.at("pixels").get<float>());return {{"ok",true}};}
+    if(op=="runtime.ui.list"){auto rows=request.at("rows").get<std::vector<std::string>>();std::vector<const char*> data;for(const auto &r:rows)data.push_back(r.c_str());run.hud().setList(run.hud().find(request.at("node").get<std::string>()),data.data(),uint32_t(data.size()));return {{"ok",true}};}
+    if(op=="runtime.ui.query"){Json nodes=Json::array();for(uint32_t i=0;i<run.hud().nodes().size();++i){const auto &n=run.hud().nodes()[i];nodes.push_back({{"index",i},{"id",n.id},{"text",n.text},{"visible",run.hud().visible(i)},{"rows",run.hud().list(i).size()},{"scroll",run.hud().scrollOffset(i)}});}return {{"ok",true},{"result",nodes}};}
+    if(op=="runtime.prefab.load"){
+        std::string text=request.at("file").get<std::string>();auto path=std::filesystem::path(std::u8string(text.begin(),text.end()));if(path.is_relative())path=(project.valid()?project.root/"build":std::filesystem::current_path())/path;
+        auto bytes=encodeScene(loadScene(path));return {{"ok",true},{"result",{{"prefab",run.loadPrefab(bytes)}}}};
+    }
+    if(op=="runtime.prefab.spawn"){auto handle=run.instantiatePrefab(request.at("prefab").get<uint64_t>());return {{"ok",true},{"result",{{"id",run.entityId(handle)},{"handle",handle}}}};}
+    if(op=="runtime.prefab.unload"){run.unloadPrefab(request.at("prefab").get<uint64_t>());return {{"ok",true}};}
     if (op == "runtime.input") {
         SceneInput input; input.x=request.value("x",0.f);input.y=request.value("y",0.f);
         auto &p=input.pointer;p.mouseX=request.value("mouseX",-1.f);p.mouseY=request.value("mouseY",-1.f);
         p.wheel=request.value("wheel",0.f);p.buttons=request.value("buttons",0u);
         p.pressed=request.value("pressed",0u);p.released=request.value("released",0u);p.focused=1;
+        if(request.contains("touches")){
+            const auto &touches=request.at("touches");if(!touches.is_array()||touches.size()>10)throw std::runtime_error("touches must contain at most 10 contacts");
+            for(const auto &t:touches){auto &out=p.touches[p.touchCount++];out.id=t.at("id").get<int32_t>();out.x=t.at("x").get<float>();out.y=t.at("y").get<float>();out.down=t.value("down",true)?1u:0u;out.pressed=t.value("pressed",false)?1u:0u;out.released=t.value("released",false)?1u:0u;}
+        }
+        if(request.contains("gamepads")){
+            const auto &pads=request.at("gamepads");if(!pads.is_array()||pads.size()>4)throw std::runtime_error("gamepads must contain at most four devices");
+            for(uint32_t i=0;i<pads.size();++i){auto &out=p.gamepads[i];const auto &pad=pads[i];out.connected=pad.value("connected",true)?1u:0u;out.buttons=pad.value("buttons",0u);if(pad.contains("axes")){const auto axes=pad.at("axes").get<std::vector<float>>();if(axes.size()>6)throw std::runtime_error("Gamepad supports six axes");std::copy(axes.begin(),axes.end(),out.axes);}}
+        }
         for(const char* field:{"keys","keyPress"}) if(request.contains(field)) for(auto key:request.at(field)) {
             auto code=key.get<int>();if(code<0||code>255)throw std::runtime_error("Key code must be 0..255");
             (std::string(field)=="keys"?p.keys:p.keyPress)[code/32] |= 1u<<(code%32);
         }
         auto frames=request.value("frames",1);if(frames<1||frames>10000)throw std::runtime_error("frames must be 1..10000");
-        for(int i=0;i<frames;++i) {run.tick(1.f/60,input);p.pressed=p.released=0;p.wheel=0;for(auto& key:p.keyPress)key=0;}
+        for(int i=0;i<frames;++i) {run.tick(1.f/60,input);p.pressed=p.released=0;p.wheel=0;for(auto& key:p.keyPress)key=0;for(uint32_t t=0;t<p.touchCount;++t)p.touches[t].pressed=p.touches[t].released=0;}
         return {{"ok",true},{"result",{{"ticks",run.ticks()},{"canvasCommands",run.canvas().size()}}}};
     }
     if (op == "runtime.canvas") {
@@ -64,6 +83,7 @@ Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &p
             systems.push_back({{"name", s.name},
                                {"milliseconds", s.milliseconds},
                                {"maximum", s.maximum},
+                               {"average",s.average},
                                {"calls", s.calls}});
         return {{"ok", true},
                 {"result",
@@ -72,6 +92,7 @@ Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &p
                   {"componentBytes", stats.componentBytes},
                   {"pendingCommands", stats.pendingCommands},
                   {"simulationMs", stats.simulationMs},
+                  {"collisionMs",stats.collisionMs},{"extractionMs",stats.extractionMs},{"uiMs",stats.uiMs},{"p50Ms",stats.p50Ms},{"p95Ms",stats.p95Ms},{"sampledFrames",stats.sampledFrames},
                   {"droppedSeconds", stats.droppedSeconds},
                   {"systems", systems}}}};
     }

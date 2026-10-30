@@ -15,7 +15,7 @@ class Player {
 public:
     Player(HWND window,const std::filesystem::path& path):window_(window),path_(path) {
         RECT area;GetClientRect(window_,&area);renderer_=std::make_unique<gm::Renderer>(window_,area.right,area.bottom);
-        if(path.extension()==".gmscene") {scene_=std::make_unique<gm::SceneRuntime>(gm::loadScene(path));sceneView_=std::make_unique<gm::SceneView>(*renderer_);ImmAssociateContextEx(window_,nullptr,0);}else document_=std::make_unique<gm::RuntimeDocument>(path);
+        if(path.extension()==".gmscene") {scene_=std::make_unique<gm::SceneRuntime>(gm::loadScene(path),path.parent_path());sceneView_=std::make_unique<gm::SceneView>(*renderer_);ImmAssociateContextEx(window_,nullptr,0);}else document_=std::make_unique<gm::RuntimeDocument>(path);
         auto catalog=path.parent_path()/"scenes.gmcatalog";if(scene_&&std::filesystem::exists(catalog))loader_=std::make_unique<gm::SceneLoader>(catalog);
     }
     ~Player(){sceneView_.reset();view_.clear(*renderer_);}
@@ -23,6 +23,7 @@ public:
     DWORD waitTime() const {return scene_?(GetForegroundWindow()==window_&&!IsIconic(window_)?16:100):INFINITE;}
     void requestFrame() {redraw_=true;}
     void inputKey(WPARAM key, bool repeat){gameInput_.key(uint32_t(key),repeat);}
+    bool inputTouch(WPARAM p,bool down){return gameInput_.pointer(window_,p,down);}
     void inputButton(uint32_t bit,bool down){gameInput_.button(bit,down);if(down)SetCapture(window_);else if(bit!=1&&!(GetAsyncKeyState(VK_LBUTTON)&0x8000)&&!(GetAsyncKeyState(VK_MBUTTON)&0x8000)&&!(GetAsyncKeyState(VK_RBUTTON)&0x8000))ReleaseCapture();}
     void inputWheel(float amount){gameInput_.wheel(amount);}
     void loseFocus(){gameInput_.clear();}
@@ -32,7 +33,7 @@ public:
             auto request=scene_->takeSceneRequest();
             if(!request.empty()){if(!loader_)throw std::runtime_error("No scene catalog; build/package the project first");loader_->request(request);}
             if(loader_)if(auto ready=loader_->poll()){
-                auto next=std::make_unique<gm::SceneRuntime>(std::move(*ready));
+                auto next=std::make_unique<gm::SceneRuntime>(std::move(*ready),path_.parent_path());
                 sceneView_->clear();scene_=std::move(next);lastLoadError_.clear();
                 pressed_=gm::NoIndex;ReleaseCapture();lastTick_=std::chrono::steady_clock::now();
             }
@@ -62,7 +63,7 @@ public:
         if(pressed_!=gm::NoIndex) SetCapture(window_);
     }
     void up(float x,float y) {
-        if(scene_){auto node=pressed_;pressed_=gm::NoIndex;ReleaseCapture();if(node!=gm::NoIndex&&sceneView_->hitUi(*scene_,x,y)==node)scene_->activateUi(node);return;}
+        if(scene_){pressed_=gm::NoIndex;ReleaseCapture();return;}
         const auto pressed=pressed_;pressed_=gm::NoIndex;ReleaseCapture();requestFrame();updateLayout();
         if(pressed==gm::NoIndex || view_.layout.hit(x,y)!=pressed) return;
         const auto result=document_->activate(pressed);
@@ -77,7 +78,7 @@ public:
     }
     void leave() {mouseX_=mouseY_=-1;requestFrame();}
     void cancel() {pressed_=gm::NoIndex;gameInput_.cancelButtons();requestFrame();}
-    void reload() {if(scene_){auto next=std::make_unique<gm::SceneRuntime>(gm::loadScene(path_));sceneView_->clear();scene_=std::move(next);lastTick_=std::chrono::steady_clock::now();}else document_->reload();cancel();ReleaseCapture();requestFrame();}
+    void reload() {if(scene_){auto next=std::make_unique<gm::SceneRuntime>(gm::loadScene(path_),path_.parent_path());sceneView_->clear();scene_=std::move(next);lastTick_=std::chrono::steady_clock::now();}else document_->reload();cancel();ReleaseCapture();requestFrame();}
 private:
     void updateLayout() {RECT area;GetClientRect(window_,&area);if(area.right>0 && area.bottom>0) view_.layout.update(*document_,float(area.right),float(area.bottom));}
     HWND window_;std::filesystem::path path_;std::unique_ptr<gm::RuntimeDocument> document_;gm::RuntimeView view_;
@@ -106,6 +107,7 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wp,LPARAM lp) {
             case WM_MOUSEWHEEL:player->inputWheel(float(GET_WHEEL_DELTA_WPARAM(wp))/120.f);return 0;
             case WM_KILLFOCUS:player->loseFocus();return 0;
             case WM_CAPTURECHANGED:player->cancel();return 0;
+            case WM_POINTERDOWN:case WM_POINTERUPDATE:case WM_POINTERUP:if(player->inputTouch(wp,message!=WM_POINTERUP))return 0;break;
             case WM_KEYDOWN:player->inputKey(wp,(lp & (1ll<<30))!=0);if(wp==VK_F5) {player->reload();return 0;}player->key(wp);break;
         }
         if(message==WM_ERASEBKGND) return 1;

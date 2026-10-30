@@ -68,7 +68,7 @@ Json importProjectAssets(const GameProject &p) {
             continue;
         auto path = item.path();
         auto ext = text(path.extension());
-        if (ext != ".json" && ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".wav")
+        if (ext != ".json" && ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".wav" && ext != ".mp3" && ext != ".flac")
             continue;
         auto relative = std::filesystem::canonical(path).lexically_relative(root);
         if (relative.empty() || *relative.begin() == "..")
@@ -95,9 +95,16 @@ Json buildProjectAssets(const GameProject &p) {
     Json next = Json::object();
     Json report = Json::array();
     std::vector<SceneEntry> catalog;
+    std::vector<SceneEntry> prefabs;
     for (auto &asset : assets) {
         auto relative = asset.at("path").get<std::string>();
-        if (!relative.ends_with(".scene.json"))
+        if(relative.ends_with(".wav")||relative.ends_with(".mp3")||relative.ends_with(".flac")){
+            auto file=std::filesystem::path(std::u8string(relative.begin(),relative.end()));auto output=p.root/"build"/file;std::filesystem::create_directories(output.parent_path());
+            if(!std::filesystem::exists(output)||hashFile(output)!=asset.at("hash").get<std::string>())std::filesystem::copy_file(p.root/file,output,std::filesystem::copy_options::overwrite_existing);
+            continue;
+        }
+        bool prefab=relative.ends_with(".prefab.json");
+        if (!relative.ends_with(".scene.json")&&!prefab)
             continue;
         auto path = std::filesystem::canonical(
             p.root / std::filesystem::path(std::u8string(relative.begin(), relative.end())));
@@ -130,26 +137,29 @@ Json buildProjectAssets(const GameProject &p) {
                 dependency(uiPath.parent_path(), value);
         }
         Json signature = {
-            {"compiler", 8}, {"schema", gameRegistry()->fingerprint()}, {"dependencies", Json::object()}};
+            {"compiler", 9}, {"schema", gameRegistry()->fingerprint()}, {"dependencies", Json::object()}};
         for (const auto &file : dependencies)
             signature["dependencies"][text(file.lexically_relative(p.root))] = hashFile(file);
         auto id = asset.at("id").get<std::string>();
-        auto file = "scenes/" + id + ".gmscene";
+        auto file = prefab?"prefabs/"+id+".gmprefab":"scenes/" + id + ".gmscene";
         auto output = p.root / "build" / file;
         bool exists = std::filesystem::exists(output);
         if (exists)
             signature["compiledHash"] = hashFile(output);
         bool reused = exists && previous.contains(id) && previous[id] == signature;
         if (!reused) {
-            saveScene(output, compileScene(source, path.parent_path()));
+            auto compiled=compileScene(source,path.parent_path());
+            if(prefab&&(compiled.entities.empty()||compiled.entities[0].parent!=NoIndex||compiled.hud.nodes.size()!=1||!compiled.bindings.empty()||std::count_if(compiled.entities.begin(),compiled.entities.end(),[](const SceneEntity& e){return e.parent==NoIndex;})!=1))throw std::runtime_error("Prefab must have one root at index zero and no HUD");
+            saveScene(output, compiled);
             signature["compiledHash"] = hashFile(output);
         }
         next[id] = signature;
         auto name = text(path.filename());
-        name.resize(name.size() - 11);
-        catalog.push_back({id, name, file});
+        name.resize(name.size() - (prefab?12:11));
+        (prefab?prefabs:catalog).push_back({id, name, file});
         report.push_back({{"id", id},
                           {"path", relative},
+                          {"file",file},{"kind",prefab?"prefab":"scene"},
                           {"reused", reused},
                           {"dependencies", signature["dependencies"]}});
         if (path == p.entry)
@@ -161,6 +171,7 @@ Json buildProjectAssets(const GameProject &p) {
         }))
         throw std::runtime_error("Project entry must be under assets and end with .scene.json");
     saveCatalog(p.root / "build/scenes.gmcatalog", catalog);
+    saveCatalog(p.root / "build/prefabs.gmcatalog", prefabs);
     writeJsonAtomic(cache, next);
     writeJsonAtomic(p.root / "build/import-report.json", report);
     return report;

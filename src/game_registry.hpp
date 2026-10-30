@@ -14,6 +14,7 @@ public:
     ~GameRegistry();
     GameRegistry(const GameRegistry&)=delete;
     void load(const std::filesystem::path& module);
+    void loadStatic(sdk::Entry entry,sdk::ExtensionEntry extension=nullptr);
     const NativeComponent& component(sdk::TypeId id) const;
     const NativeComponent& component(const std::string& name) const;
     const NativeSystem& system(const std::string& name) const;
@@ -28,6 +29,7 @@ public:
     void validate(sdk::TypeId type,std::span<const uint32_t> fields) const;
 private:
     void finalize();
+    bool registered_=false;
     std::vector<sdk::SystemState> stateHooks_;
     std::vector<NativeComponent> components_;std::vector<NativeSystem> systems_;
     std::string name_="GMEngine";uint64_t fingerprint_=0;void* library_=nullptr;

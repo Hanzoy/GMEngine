@@ -3,7 +3,9 @@
 #include "game_registry.hpp"
 #include "fixed_step.hpp"
 #include "storage.hpp"
+#include "runtime_layout.hpp"
 #include <memory>
+#include <array>
 namespace gm {
 using Transform2D = sdk::Transform2D;
 using Velocity = sdk::Velocity;
@@ -66,16 +68,19 @@ struct SystemTiming {
     std::string name;
     double milliseconds = 0, maximum = 0;
     uint64_t calls = 0;
+    double total = 0, average = 0;
 };
 struct RuntimeStats {
     uint32_t entities = 0, queries = 0, pendingCommands = 0;
     uint64_t componentBytes = 0;
     double simulationMs = 0, droppedSeconds = 0;
+    double collisionMs=0,extractionMs=0,uiMs=0,p50Ms=0,p95Ms=0;
+    uint32_t sampledFrames=0;
     std::vector<SystemTiming> systems;
 };
 class SceneRuntime {
   public:
-    explicit SceneRuntime(CompiledScene scene);
+    explicit SceneRuntime(CompiledScene scene,std::filesystem::path contentRoot={});
     ~SceneRuntime();
     SceneRuntime(const SceneRuntime &) = delete;
     SceneRuntime &operator=(const SceneRuntime &) = delete;
@@ -83,12 +88,18 @@ class SceneRuntime {
     uint32_t advance(double elapsed, SceneInput input);
     void resetClock() {
         clock_.reset();
+        pendingInput_={};uiPressed_=uiFocused_=NoIndex;
     }
     sdk::Entity create(sdk::Entity parent = 0);
     void destroy(sdk::Entity entity);
     void set(sdk::Entity entity, sdk::TypeId type, std::span<const uint32_t> fields);
     void remove(sdk::Entity entity, sdk::TypeId type);
     sdk::Entity instantiate(uint32_t source, sdk::Entity parent = 0);
+    uint64_t loadPrefab(std::span<const uint8_t> bytes);
+    sdk::Entity instantiatePrefab(uint64_t prefab,sdk::Entity parent=0);
+    void unloadPrefab(uint64_t prefab);
+    uint64_t imageRevision() const {return imageRevision_;}
+    const std::string& contentRoot() const {return contentRoot_;}
     bool alive(uint32_t index) const;
     sdk::Entity entity(uint32_t index) const;
     const std::string& entityId(sdk::Entity entity) const;
@@ -105,7 +116,7 @@ class SceneRuntime {
     std::vector<sdk::Entity> queryArea(Rect area, uint32_t mask = 65535) const;
     RayHit raycast(float x, float y, float dx, float dy, float length, uint32_t mask = 65535) const;
     void reset();
-    bool activateUi(uint32_t node);
+    bool activateUi(uint32_t node,int32_t row=-1);
     Transform2D position(uint32_t entity) const;
     std::vector<uint32_t> component(uint32_t entity, sdk::TypeId type) const;
     uint32_t find(const std::string &stableId) const;
@@ -133,7 +144,15 @@ class SceneRuntime {
     FixedStep clock_;
     SceneInput pendingInput_{};
     double simulationMs_ = 0;
+    double collisionMs_=0,extractionMs_=0,uiMs_=0;
+    std::array<double,120> frameTimes_{};
+    uint32_t frameSamples_=0,frameCursor_=0;
     uint64_t spriteRevision_ = 0;
+    uint64_t imageRevision_=1;
+    std::string contentRoot_;
+    RuntimeLayout uiLayout_;
+    uint32_t uiPressed_=NoIndex,uiFocused_=NoIndex;
+    void uiInput(sdk::Input& input);
     struct BoundValue {
         double value = -1, maximum = -1;
     };

@@ -2,7 +2,7 @@
 #include "game.hpp"
 
 namespace gm::sdk {
-// Optional, versioned interfaces. The ABI 9 Module/System/Context layouts remain unchanged.
+// Optional, versioned interfaces. Check service availability before use.
 // Export gm_game_extensions(1, host) to opt in. Old hosts ignore it; check service availability.
 struct Error {
     char message[512]{};

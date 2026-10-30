@@ -6,7 +6,8 @@
 
 namespace gm {
 inline constexpr uint32_t NoIndex=UINT32_MAX;
-enum class UiKind:uint32_t {Panel,Label,Button,Image};
+enum class UiKind:uint32_t {Panel,Label,Button,Image,List};
+enum class UiLayout:uint32_t {Absolute,Row,Column,Grid};
 enum class UiOp:uint32_t {AddInteger,SetText,SetColor,SetTextColor,SetVisible,SetX,SetY,SetWidth,SetHeight,SetFontSize,SetImageFit,SetTint,SetOpacity};
 struct UiNode {
     UiKind kind=UiKind::Panel;
@@ -19,6 +20,12 @@ struct UiNode {
     std::string text;
     uint32_t image=NoIndex,tint=0xffffffff;
     ImageFit fit=ImageFit::Contain;
+    std::string id,bindText;
+    uint64_t event=0;
+    UiLayout layout=UiLayout::Absolute;
+    float padding=0,gap=0,anchorX=0,anchorY=0,pivotX=0,pivotY=0,rowHeight=28;
+    uint32_t columns=1;
+    bool fillX=false,fillY=false;
 };
 struct UiAction {
     UiOp op=UiOp::SetText;
@@ -30,6 +37,7 @@ struct UiAction {
 };
 struct CompiledUi {std::vector<UiNode> nodes;std::vector<UiAction> actions;std::vector<UiImage> images;};
 bool parseCounter(const std::string& text,int64_t& value);
+void validateUiText(const std::string& text);
 void validateCompiledUi(const CompiledUi& asset);
 std::vector<uint8_t> encodeUi(const CompiledUi& asset);
 CompiledUi decodeUi(std::span<const uint8_t> bytes);

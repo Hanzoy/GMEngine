@@ -7,7 +7,7 @@
 // Native module boundary: no STL ownership, JSON, engine classes, or Flecs types.
 // All descriptors and strings remain owned by the module until it is unloaded.
 namespace gm::sdk {
-inline constexpr uint32_t AbiVersion = 9;
+inline constexpr uint32_t AbiVersion = 10;
 using TypeId = uint64_t;
 using Entity = uint64_t;
 constexpr TypeId id(const char *text) {
@@ -49,12 +49,19 @@ struct Batch {
     const uint32_t *strides;
 };
 // Logical scene coordinates (letterboxing removed). Button bits: left=1, right=2, middle=4.
-// Key codes use the Windows virtual-key values for this Windows backend.
+// Canonical key codes retain Windows virtual-key numeric values on every platform.
 // Edges and wheel are delivered once, including when a render frame has no simulation step.
+struct Touch {int32_t id=-1;float x=0,y=0;uint32_t down=0,pressed=0,released=0;};
+struct Gamepad {uint32_t connected=0,buttons=0;float axes[6]{};};
 struct Input {
     float mouseX = -1, mouseY = -1, wheel = 0;
     uint32_t buttons = 0, pressed = 0, released = 0, focused = 0;
     uint32_t keys[8]{}, keyPress[8]{};
+    uint32_t touchCount=0;
+    Touch touches[10]{};
+    // Axes: left X/Y, right X/Y, left/right trigger. Y grows down; triggers 0..1.
+    // Buttons use XInput bit values: A=0x1000, B=0x2000, Start=0x10, D-pad=1/2/4/8.
+    Gamepad gamepads[4]{};
     bool held(uint32_t key) const { return key < 256 && (keys[key / 32] & (1u << (key % 32))); }
     bool hit(uint32_t key) const { return key < 256 && (keyPress[key / 32] & (1u << (key % 32))); }
 };
@@ -96,6 +103,8 @@ struct Api {
     void (*events)(void *world, TypeId type, void *user, void (*visit)(void *, const Event *));
     void (*switchScene)(void *world, const char *id);
     void (*draw)(void *world, const CanvasCommand *command);
+    // Versioned, World-scoped services (UI, prefabs, platform input). No engine classes.
+    const void *(*service)(void *world, TypeId type, uint32_t version);
 };
 struct Context {
     void *world;
@@ -132,6 +141,11 @@ struct Context {
         api->switchScene(world, id);
     }
     void draw(const CanvasCommand &command) const { api->draw(world, &command); }
+    template<class T> const T *service() const {
+        if(!api->service)return nullptr;
+        const auto *s=static_cast<const T*>(api->service(world,T::Id,T::Version));
+        return s && s->structSize>=sizeof(T) && s->version==T::Version?s:nullptr;
+    }
     template <class Fn> void events(TypeId type, Fn &&fn) const {
         using F = std::remove_reference_t<Fn>;
         api->events(world, type, &fn,

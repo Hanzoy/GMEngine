@@ -1,8 +1,10 @@
-# GM Engine 0.8.5（开发版）
+# GM Engine 0.9.0（开发版）
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
 
-0.8.5 修复新版 MSVC 下字符串与 JSON 比较的编译错误，以及英文 Windows 下中文项目路径的编码错误。文件操作保留原生路径，日志与命令响应统一使用 UTF-8；SDK 仍为 ABI 9。
+0.9.0 增加原生局域网联机、游戏后台任务、音频总线、异步共享资源、独立预制体、UI 流布局 / 字符串绑定 / 虚拟列表、动作映射 / 多点触摸，以及 Android ARM64 最小 Player 和 APK 构建。SDK 升至 **ABI 10**，旧游戏模块需重新构建。合作建造和 Touch Lab 是独立游戏示例；Steam 后端尚未实现，Android 已编译打包但尚未真机验证。接口、运行方法、容量限制和测试证据见 [0.9 开发说明](docs/engine-v09.md)。
+
+0.8.5 修复新版 MSVC 下字符串与 JSON 比较的编译错误，以及英文 Windows 下中文项目路径的编码错误。文件操作保留原生路径，日志与命令响应统一使用 UTF-8。
 
 0.8.4 根据原生工厂项目的反馈增加 System 私有状态存档与版本迁移、事务恢复、独占存储服务、UI 输入路由，并优化动态文本与纯色图形合批。核心保持 ABI 9，通过可选扩展和服务查询接入；ABI 8 模块仍需重编译。实测同一工厂画面的 draw 从 150 降至 1，游戏读档后续跑结果逐字节一致。详细接口、证据与限制见 [0.8.4 反馈落实](docs/dsp-feedback-v084.md)。
 
@@ -10,10 +12,10 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 ## 安装和启动
 
-0.8.5 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
+0.9.0 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.8.5-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.8.5-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.9.0-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.9.0-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
 
@@ -42,7 +44,7 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 ## 使用
 
-打开 `D:\Demo\GMEngineGame\projects\CrystalMeadow\game.gmproject`。Ctrl+S 保存，Ctrl+Z / Ctrl+Y 撤销与重做，F5 运行，F7 暂停，Shift+F7 单步，F8 停止。右侧提供组件、System、项目和性能页。修改 C++ 后停止、保存，再执行“项目 → 构建项目模块与场景”。
+打开 `D:\Demo\GMEngineGame\projects\CoopWorkshop\game.gmproject` 体验合作建造，或打开 CrystalMeadow / TouchLab。Ctrl+S 保存，Ctrl+Z / Ctrl+Y 撤销与重做，F5 运行，F7 暂停，Shift+F7 单步，F8 停止。右侧提供组件、System、项目和性能页。修改 C++ 后停止、保存，再执行“项目 → 构建项目模块与场景”。
 
 ```powershell
 $cli='../GMEngineApp/bin/gmctl.exe'

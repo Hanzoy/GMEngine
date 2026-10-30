@@ -12,5 +12,6 @@ public:
 private:
     Renderer& renderer_;const SceneRuntime* scene_=nullptr;Rect viewport_{};
     RuntimeView hudView_;std::vector<bgfx::TextureHandle> images_;
+    uint64_t imageRevision_=0;
 };
 }

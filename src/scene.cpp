@@ -1,5 +1,8 @@
 #include "scene.hpp"
 #include "checkpoint.hpp"
+#include <gm/ui.hpp>
+#include <gm/resources.hpp>
+#include "path_text.hpp"
 #include <flecs.h>
 #include <algorithm>
 #include <bit>
@@ -78,9 +81,35 @@ struct SceneRuntime::Impl {
     bool structureDirty = true;
     uint64_t structureRevision = 0;
     std::string requestedScene;
+    RuntimeDocument *hud=nullptr;
+    SceneRuntime *owner=nullptr;
+    std::map<uint64_t,std::vector<SceneEntity>> prefabs;
+    uint64_t nextPrefab=1;
+    template<class F> static bool uiCall(void *world,sdk::Error *e,F&& fn) {
+        if(e)*e={};try{auto &self=*static_cast<Impl*>(world);if(!self.hud)throw std::runtime_error("UI not ready");fn(*self.hud);return true;}
+        catch(const std::exception &x){if(e)std::strncpy(e->message,x.what(),511);return false;}
+    }
+    static const void *service(void*,sdk::TypeId id,uint32_t version) {
+        static const sdk::UiService ui{sizeof(sdk::UiService),1,
+            [](void *w,const char *name,const char *text,sdk::Error *e){return uiCall(w,e,[&](RuntimeDocument &d){if(!name||!text)throw std::runtime_error("Null UI text binding");d.bindText(name,text);});},
+            [](void *w,const char *name,bool show,sdk::Error *e){return uiCall(w,e,[&](RuntimeDocument &d){if(!name)throw std::runtime_error("Null UI ID");d.setVisible(d.find(name),show);});},
+            [](void *w,const char *name,const char *const *rows,uint32_t count,sdk::Error *e){return uiCall(w,e,[&](RuntimeDocument &d){if(!name)throw std::runtime_error("Null UI ID");d.setList(d.find(name),rows,count);});},
+            [](void *w,const char *name,float pixels,sdk::Error *e){return uiCall(w,e,[&](RuntimeDocument &d){if(!name)throw std::runtime_error("Null UI ID");d.scroll(d.find(name),pixels);});}
+        };
+        static const sdk::PrefabService prefab{sizeof(sdk::PrefabService),1,
+            [](void *w,const void *bytes,uint32_t size,sdk::Error *e){uint64_t result=0;uiCall(w,e,[&](RuntimeDocument&){auto &self=*static_cast<Impl*>(w);if(!self.owner||(!bytes&&size))throw std::runtime_error("Prefab loading is available after System creation");result=self.owner->loadPrefab({static_cast<const uint8_t*>(bytes),size});});return result;},
+            [](void *w,uint64_t id,sdk::Entity parent,sdk::Error *e){sdk::Entity result=0;uiCall(w,e,[&](RuntimeDocument&){auto &self=*static_cast<Impl*>(w);if(!self.owner)throw std::runtime_error("World not ready");result=self.owner->instantiatePrefab(id,parent);});return result;},
+            [](void *w,uint64_t id,sdk::Error *e){return uiCall(w,e,[&](RuntimeDocument&){auto &self=*static_cast<Impl*>(w);if(!self.owner)throw std::runtime_error("World not ready");self.owner->unloadPrefab(id);});}
+        };
+        static const sdk::ContentService content{sizeof(sdk::ContentService),1,[](void *w)->const char*{auto &self=*static_cast<Impl*>(w);return self.owner?self.owner->contentRoot().c_str():"";}};
+        if(version!=1)return nullptr;
+        if(id==sdk::PrefabService::Id)return &prefab;
+        if(id==sdk::ContentService::Id)return &content;
+        return id==sdk::UiService::Id?&ui:nullptr;
+    }
     static const sdk::Api &api() {
         static const sdk::Api value{sdk::AbiVersion, each,  get,  getMut, create, destroy,    set,
-                                    remove,          alive, find, emit,   events, switchScene, draw};
+                                    remove,          alive, find, emit,   events, switchScene, draw,service};
         return value;
     }
     sdk::Context context() {
@@ -387,9 +416,9 @@ struct SceneRuntime::Impl {
             throw;
         }
     }
-    explicit Impl(const CompiledScene &s, std::shared_ptr<GameRegistry> r, const RuntimeCheckpoint* saved=nullptr)
+    explicit Impl(const CompiledScene &s, std::shared_ptr<GameRegistry> r, RuntimeDocument *document, const RuntimeCheckpoint* saved=nullptr)
         : registry(std::move(r)), records(s.entities), authoredCount(uint32_t(s.entities.size())),
-          imageCount(s.imageBank.images.size()) {
+          imageCount(s.imageBank.images.size()),hud(document) {
         children.resize(records.size());
         for (uint32_t i = 0; i < records.size(); ++i)
             if (records[i].parent != NoIndex)
@@ -567,6 +596,7 @@ struct SceneRuntime::Impl {
                 s.timing.milliseconds = ms(start);
                 s.timing.maximum = std::max(s.timing.maximum, s.timing.milliseconds);
                 ++s.timing.calls;
+                s.timing.total+=s.timing.milliseconds;s.timing.average=s.timing.total/double(s.timing.calls);
             }
     }
     bool bound(const SceneBinding &b) const {
@@ -583,16 +613,16 @@ struct SceneRuntime::Impl {
                                           : double(std::bit_cast<int32_t>(word));
     }
 };
-SceneRuntime::SceneRuntime(CompiledScene scene) : registry_(gameRegistry()), asset_(std::move(scene)) {
+SceneRuntime::SceneRuntime(CompiledScene scene,std::filesystem::path contentRoot) : registry_(gameRegistry()), asset_(std::move(scene)),contentRoot_(contentRoot.empty()?std::string():pathText(std::filesystem::absolute(contentRoot).lexically_normal())) {
     validateSceneBinary(asset_);
     reset();
 }
-SceneRuntime::~SceneRuntime() = default;
+SceneRuntime::~SceneRuntime() {impl_.reset();}
 void SceneRuntime::reset() {
-    auto next = std::make_unique<Impl>(asset_, registry_);
     auto hud = std::make_unique<RuntimeDocument>(asset_.hud);
-    impl_ = std::move(next);
-    hud_ = std::move(hud);
+    auto next = std::make_unique<Impl>(asset_, registry_,hud.get());
+    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;
+    hud_ = std::move(hud);uiLayout_={};uiPressed_=uiFocused_=NoIndex;
     clock_.reset();
     pendingInput_ = {};
     sprites_.clear();
@@ -603,14 +633,14 @@ void SceneRuntime::reset() {
 }
 void SceneRuntime::restore(CompiledScene scene) {
     validateSceneBinary(scene);
-    auto next = std::make_unique<Impl>(scene, registry_);
     auto hud = std::make_unique<RuntimeDocument>(scene.hud);
+    auto next = std::make_unique<Impl>(scene, registry_,hud.get());
     asset_ = std::move(scene);
     spriteRevision_ = 0;
     spriteRows_.clear();
     sprites_.clear();
-    impl_ = std::move(next);
-    hud_ = std::move(hud);
+    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;
+    hud_ = std::move(hud);uiLayout_={};uiPressed_=uiFocused_=NoIndex;
     clock_.reset();
     pendingInput_ = {};
     bound_.assign(asset_.bindings.size(), BoundValue{});
@@ -623,10 +653,13 @@ uint32_t SceneRuntime::advance(double elapsed, SceneInput input) {
     auto &p = pendingInput_.pointer;
     p.pressed |= edges.pressed; p.released |= edges.released; p.wheel += edges.wheel;
     for (int i = 0; i < 8; ++i) p.keyPress[i] |= edges.keyPress[i];
+    if(p.focused){for(uint32_t i=0;i<std::min(edges.touchCount,10u);++i){const auto &t=edges.touches[i];if(!t.pressed&&!t.released)continue;uint32_t found=NoIndex;for(uint32_t j=0;j<std::min(p.touchCount,10u);++j)if(p.touches[j].id==t.id){found=j;break;}if(found!=NoIndex){p.touches[found].pressed|=t.pressed;p.touches[found].released|=t.released;}else if(p.touchCount<10)p.touches[p.touchCount++]=t;}}
+    else {p.touchCount=0;p.pressed=p.released=0;p.wheel=0;for(auto &key:p.keyPress)key=0;}
     return clock_.advance(elapsed, [&](float dt) {
         tick(dt, pendingInput_);
         p.pressed = p.released = 0; p.wheel = 0;
         for (auto &key : p.keyPress) key = 0;
+        uint32_t count=0;for(uint32_t i=0;i<p.touchCount;++i)if(p.touches[i].down){auto t=p.touches[i];t.pressed=t.released=0;p.touches[count++]=t;}p.touchCount=count;
     });
 }
 const std::vector<sdk::CanvasCommand> &SceneRuntime::canvas() const { return impl_->canvas; }
@@ -634,6 +667,9 @@ void SceneRuntime::tick(float dt, SceneInput input) {
     if (!std::isfinite(dt) || dt < 0 || !std::isfinite(input.x) || !std::isfinite(input.y) ||
         !std::isfinite(input.pointer.mouseX) || !std::isfinite(input.pointer.mouseY) || !std::isfinite(input.pointer.wheel))
         throw std::runtime_error("Invalid simulation input");
+    if(input.pointer.touchCount>10)throw std::runtime_error("Too many touches");
+    for(uint32_t i=0;i<input.pointer.touchCount;++i)if(input.pointer.touches[i].id<0||!std::isfinite(input.pointer.touches[i].x)||!std::isfinite(input.pointer.touches[i].y))throw std::runtime_error("Invalid touch input");
+    for(const auto &pad:input.pointer.gamepads)for(float axis:pad.axes)if(!std::isfinite(axis)||axis<-1||axis>1)throw std::runtime_error("Invalid gamepad axis");
     auto start = Clock::now();
     dt = std::min(dt, .1f);
     float n = std::hypot(input.x, input.y);
@@ -643,6 +679,8 @@ void SceneRuntime::tick(float dt, SceneInput input) {
     }
     impl_->inbox.swap(impl_->outbox);
     impl_->outbox.clear();
+    if(input.pointer.touchCount){const auto &t=input.pointer.touches[0];input.pointer.mouseX=t.x;input.pointer.mouseY=t.y;input.pointer.buttons=t.down?1u:0u;input.pointer.pressed=t.pressed?1u:0u;input.pointer.released=t.released?1u:0u;}
+    auto uiStart=Clock::now();uiInput(input.pointer);uiMs_=ms(uiStart);
     impl_->frame.dt = dt;
     impl_->frame.inputX = input.x;
     impl_->frame.inputY = input.y;
@@ -655,10 +693,11 @@ void SceneRuntime::tick(float dt, SceneInput input) {
     impl_->phase(sdk::Phase::PostTransform);
     impl_->phase(sdk::Phase::Late);
     impl_->transforms();
-    impl_->collisions();
-    extract();
-    syncUi();
+    auto collisionStart=Clock::now();impl_->collisions();collisionMs_=ms(collisionStart);
+    auto extractionStart=Clock::now();extract();extractionMs_=ms(extractionStart);
+    uiStart=Clock::now();syncUi();uiMs_+=ms(uiStart);
     simulationMs_ = ms(start);
+    frameTimes_[frameCursor_++%frameTimes_.size()]=simulationMs_;frameSamples_=std::min(frameSamples_+1,uint32_t(frameTimes_.size()));
 }
 void SceneRuntime::extract() {
     if (spriteRevision_ != impl_->structureRevision || spriteRows_.size() != impl_->records.size()) {
@@ -722,7 +761,29 @@ void SceneRuntime::syncUi() {
         cached = {value, maximum};
     }
 }
-bool SceneRuntime::activateUi(uint32_t node) {
+void SceneRuntime::uiInput(sdk::Input& input) {
+    if(!input.focused){uiPressed_=uiFocused_=NoIndex;return;}
+    uiLayout_.update(*hud_,asset_.width,asset_.height);
+    const auto hit=uiLayout_.hit(input.mouseX,input.mouseY);
+    if(input.pressed&1){uiPressed_=hit;if(hit!=NoIndex)uiFocused_=hit;}
+    bool capture=uiPressed_!=NoIndex||hit!=NoIndex;
+    if(input.released&1){if(uiPressed_!=NoIndex&&uiPressed_==hit)activateUi(hit,uiLayout_.listRow(*hud_,hit,input.mouseY));uiPressed_=NoIndex;}
+    if(input.wheel){auto list=uiLayout_.listAt(*hud_,input.mouseX,input.mouseY);if(list!=NoIndex){hud_->scroll(list,-input.wheel*3*hud_->nodes()[list].rowHeight);input.wheel=0;}}
+    if(input.hit(9)){
+        const auto &buttons=uiLayout_.buttons();auto it=std::find(buttons.begin(),buttons.end(),uiFocused_);
+        if(!buttons.empty()){if(input.held(16))uiFocused_=it==buttons.begin()||it==buttons.end()?buttons.back():*std::prev(it);else uiFocused_=it==buttons.end()||std::next(it)==buttons.end()?buttons.front():*std::next(it);}
+        input.keyPress[0]&=~(1u<<9);
+    }
+    if(input.hit(13)&&uiFocused_!=NoIndex){activateUi(uiFocused_);input.keyPress[0]&=~(1u<<13);}
+    if(capture){input.buttons&=~1u;input.pressed&=~1u;input.released&=~1u;if(input.touchCount)input.touches[0].down=input.touches[0].pressed=input.touches[0].released=0;}
+}
+bool SceneRuntime::activateUi(uint32_t node,int32_t row) {
+    if(node>=hud_->nodes().size()||!hud_->visible(node))return false;
+    const auto &ui=hud_->nodes()[node];
+    if(ui.event){
+        if(ui.kind==UiKind::List && (row<0||uint32_t(row)>=hud_->list(node).size()))return false;
+        sdk::UiEventData data{sdk::id(ui.id.c_str()),row,0};sdk::Event event{};event.type=ui.event;event.size=sizeof(data);std::memcpy(event.data,&data,sizeof(data));Impl::emit(impl_.get(),&event);return true;
+    }
     for (const auto &b : asset_.bindings)
         if (b.node == node && b.kind == BindingKind::NumberChange && impl_->bound(b)) {
             const auto &d = registry_->component(b.component).descriptor;
@@ -738,7 +799,7 @@ bool SceneRuntime::activateUi(uint32_t node) {
             set(entity(b.entity), b.component, words);
             return true;
         }
-    return false;
+    return hud_->activate(node)==ActionResult::Applied;
 }
 Transform2D SceneRuntime::position(uint32_t index) const {
     auto *p = static_cast<const sdk::WorldPosition *>(
@@ -833,12 +894,15 @@ sdk::Entity SceneRuntime::instantiate(uint32_t source, sdk::Entity parent) {
     }
     return root;
 }
+#include "scene_prefabs.inl"
 RuntimeStats SceneRuntime::stats() const {
     RuntimeStats s;
     s.entities = uint32_t(impl_->slots.size());
     s.queries = uint32_t(impl_->queries.size());
     s.pendingCommands = uint32_t(impl_->commands.size());
     s.simulationMs = simulationMs_;
+    s.collisionMs=collisionMs_;s.extractionMs=extractionMs_;s.uiMs=uiMs_;s.sampledFrames=frameSamples_;
+    if(frameSamples_){auto sorted=frameTimes_;std::sort(sorted.begin(),sorted.begin()+frameSamples_);s.p50Ms=sorted[(frameSamples_-1)/2];s.p95Ms=sorted[size_t(std::ceil(frameSamples_*.95))-1];}
     s.droppedSeconds = clock_.droppedSeconds();
     for (uint32_t i = 0; i < impl_->records.size(); ++i)
         if (alive(i))
@@ -999,8 +1063,8 @@ void SceneRuntime::restoreCheckpoint(std::span<const uint8_t> bytes) {
                                state.name) != saved.scene.disabledSystems.end())
             throw std::runtime_error("Checkpoint contains an unknown or disabled System: " + state.name);
     }
-    auto next = std::make_unique<Impl>(saved.scene, registry_, &saved);
     auto hud = std::make_unique<RuntimeDocument>(saved.scene.hud);
+    auto next = std::make_unique<Impl>(saved.scene, registry_,hud.get(), &saved);
     auto resolve = [&](const std::string &name) -> sdk::Entity {
         if (name.empty())
             return 0;
@@ -1021,8 +1085,8 @@ void SceneRuntime::restoreCheckpoint(std::span<const uint8_t> bytes) {
         next->contacts.insert(std::minmax(first, second));
     }
     asset_ = std::move(saved.scene);
-    impl_ = std::move(next);
-    hud_ = std::move(hud);
+    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;
+    hud_ = std::move(hud);uiLayout_={};uiPressed_=uiFocused_=NoIndex;
     clock_ = clock;
     pendingInput_ = {};
     spriteRevision_ = 0;

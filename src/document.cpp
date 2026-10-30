@@ -27,7 +27,7 @@ bool validColor(const std::string& s) {
     for (size_t i=1; i<s.size(); ++i) if (!std::isxdigit(static_cast<unsigned char>(s[i]))) return false;
     return true;
 }
-const std::set<std::string> kinds = {"panel","label","button","image","tree","inspector","viewport","history","status","menubar","toolbar","files","output"};
+const std::set<std::string> kinds = {"panel","label","button","image","list","tree","inspector","viewport","history","status","menubar","toolbar","files","output"};
 void validateNode(const Json& node, std::set<std::string>& ids, int depth, int& count) {
     require(node.is_object(), "Node must be an object");
     require(depth <= 16 && ++count <= 512, "Document exceeds 16 levels / 512 nodes");
@@ -49,6 +49,16 @@ void validateNode(const Json& node, std::set<std::string>& ids, int depth, int& 
     if (node.contains("visible")) require(node["visible"].is_boolean(), "visible must be boolean");
     if (node.contains("fontSize")) require(node["fontSize"].is_number() && node["fontSize"].get<double>() >= 10 && node["fontSize"].get<double>() <= 48, "fontSize must be between 10 and 48");
     if (node.contains("action")) require(node["action"].is_object(), "action must be a command object");
+    for(auto key:{"bindText","event"})if(node.contains(key))require(node[key].is_string()&&node[key].get<std::string>().size()<=80,"Invalid UI binding/event name");
+    if(node.contains("layout"))require(node["layout"]=="absolute"||node["layout"]=="row"||node["layout"]=="column"||node["layout"]=="grid","Invalid layout");
+    for(auto key:{"padding","gap","rowHeight","anchorX","anchorY","pivotX","pivotY"})if(node.contains(key)){
+        require(node[key].is_number(),"UI spacing must be numeric");double v=node[key].get<double>();
+        const std::string name=key;const bool fraction=name.starts_with("anchor")||name.starts_with("pivot");
+        require(std::isfinite(v)&&v>=(name=="rowHeight"?1:0)&&v<=(fraction?1:16384),"UI spacing out of range");
+    }
+    for(auto key:{"fillX","fillY"})if(node.contains(key))require(node[key].is_boolean(),"UI fill must be boolean");
+    if(node.contains("columns"))require(node["columns"].is_number_unsigned()||(node["columns"].is_number_integer()&&node["columns"].get<int64_t>()>0),"Grid columns must be positive integers");
+    if(node.contains("columns"))require(node["columns"].get<double>()<=128,"Too many grid columns");
     if (node.contains("dock")) {
         const std::set<std::string> docks={"none","menubar","toolbar","left-top","left-bottom","center","right","bottom","status"};
         require(node["dock"].is_string() && docks.count(node["dock"].get<std::string>())!=0,"Unknown dock region");
@@ -125,7 +135,7 @@ Json commandSchema() {
             {"save","Atomically save; rejects external disk changes"},
             {"reload",{{"discard", "optional boolean; required when unsaved edits exist"}}}
         }},
-        {"editable",Json::array({"name","text","x","y","w","h","color","textColor","fontSize","visible","action","dock","source","fit","tint","opacity"})},
+        {"editable",Json::array({"name","text","x","y","w","h","color","textColor","fontSize","visible","action","dock","source","fit","tint","opacity","layout","padding","gap","anchorX","anchorY","pivotX","pivotY","fillX","fillY","columns","rowHeight","bindText","event"})},
         {"types",Json::array({"panel","label","button","image","tree","inspector","viewport","history","status","menubar","toolbar","files","output"})},
         {"concurrency","Optional expected_revision on requests; mismatches are rejected"}
     };
@@ -143,7 +153,7 @@ Json Document::applyEdit(const Json& request) {
         const auto id=request.at("id").get<std::string>();
         auto* node=findNode(data_["root"],id); require(node!=nullptr,"Node not found: " + id);
         const auto key=request.at("property").get<std::string>();
-        const std::set<std::string> allowed={"name","text","x","y","w","h","color","textColor","fontSize","visible","action","dock","source","fit","tint","opacity"};
+        const std::set<std::string> allowed={"name","text","x","y","w","h","color","textColor","fontSize","visible","action","dock","source","fit","tint","opacity","layout","padding","gap","anchorX","anchorY","pivotX","pivotY","fillX","fillY","columns","rowHeight","bindText","event"};
         require(allowed.count(key)!=0,"Property is not editable: " + key);
         (*node)[key]=request.at("value");
     } else if (op=="create") {

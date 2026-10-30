@@ -61,6 +61,13 @@ int main(int argc,char** argv) {
                 if(renderer.stats().textTextureBytes>42ull*1024*1024||renderer.stats().textCacheEntries>2048||renderer.stats().textAtlasPages>4)throw std::runtime_error("Unique text churn exceeded cache budget");
             }
             if(!evictions)throw std::runtime_error("Unique text churn did not exercise eviction");
+            gm::CompiledUi listAsset;gm::UiNode root;root.bounds={0,0,960,600};root.subtreeEnd=2;listAsset.nodes.push_back(root);
+            gm::UiNode list;list.kind=gm::UiKind::List;list.id="rows";list.parent=0;list.subtreeEnd=2;list.bounds={20,20,400,280};list.rowHeight=28;listAsset.nodes.push_back(list);
+            gm::RuntimeDocument listDocument(listAsset);std::vector<std::string> rows(10000,"Visible row");std::vector<const char*> pointers;for(auto &row:rows)pointers.push_back(row.c_str());listDocument.setList(1,pointers.data(),uint32_t(pointers.size()));
+            gm::RuntimeView listView;renderer.begin(960,600);listView.render(renderer,listDocument,960,600);renderer.end();
+            if(renderer.stats().quads>32)throw std::runtime_error("List did not virtualize 10,000 rows");
+            listDocument.scroll(1,280000);renderer.begin(960,600);listView.render(renderer,listDocument,960,600);renderer.end();
+            if(renderer.stats().quads>32)throw std::runtime_error("Scrolled list did not virtualize rows");listView.clear(renderer);
             std::cout<<"PASS: dynamic mixed labels reuse textures; unique text churn evicts within budget\n";
             std::cout<<"PASS: 2 unique image uploads, no uploads/layout rebuilds for 7 image actions, no texture leaks across 3 reloads\n";
             std::cout<<"PASS: solid batching, "<<initialDraws<<" counter draw calls, zero text texture uploads for 20 increments, one layout build\n";

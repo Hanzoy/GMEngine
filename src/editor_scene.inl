@@ -18,7 +18,7 @@ void drawMainToolbar(Rect r) {
 }
 void runScenePreview() {
     auto compiled=gm::compileScene(doc_.data(),doc_.path().parent_path());const auto output=session_/"preview.gmscene";gm::saveScene(output,compiled);
-    auto next=std::make_unique<gm::SceneRuntime>(gm::loadScene(output));stopPreview();scenePlay_=std::move(next);sceneView_=std::make_unique<gm::SceneView>(*renderer_);
+    auto next=std::make_unique<gm::SceneRuntime>(gm::loadScene(output),gameProject_.valid()?gameProject_.root/"build":doc_.path().parent_path());stopPreview();scenePlay_=std::move(next);sceneView_=std::make_unique<gm::SceneView>(*renderer_);
     scenePaused_=false;sceneGameView_=true;gameFocus_=false;lastSceneTick_=std::chrono::steady_clock::now();
     message_="场景已运行 · 点击游戏视图后使用 WASD / 方向键";logs_.push_back("编译成功 · "+std::to_string(compiled.entities.size())+" 个实体 · 已启动独立运行实例");
 }

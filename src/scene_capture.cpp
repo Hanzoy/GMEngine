@@ -34,7 +34,7 @@ struct Capture final : bgfx::CallbackI {
 }
 int main(int argc,char** argv){try{
     if(argc<4||argc>7){std::cerr<<"gm_scene_capture SCENE.gmscene MODULE.dll OUTPUT.png [INPUT.json] [WIDTH HEIGHT]\n";return 2;}
-    auto registry=std::make_shared<gm::GameRegistry>();registry->load(argv[2]);gm::useGameRegistry(registry);gm::SceneRuntime scene(gm::loadScene(argv[1]));
+    auto registry=std::make_shared<gm::GameRegistry>();registry->load(argv[2]);gm::useGameRegistry(registry);gm::SceneRuntime scene(gm::loadScene(argv[1]),std::filesystem::path(argv[1]).parent_path());
     scene.tick(1.f/60,{});
     if(argc>=5&&std::string(argv[4])!="-")for(auto& request:gm::readJson(argv[4])) {auto response=gm::runtimeCommand(scene,request);if(!response.value("ok",false))throw std::runtime_error(response.dump());}
     int width=argc==7?std::stoi(argv[5]):int(scene.asset().width),height=argc==7?std::stoi(argv[6]):int(scene.asset().height);if(width<64||height<64||width>4096||height>4096)throw std::runtime_error("Capture dimensions must be 64..4096");

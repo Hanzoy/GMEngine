@@ -5,6 +5,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <chrono>
+#include <set>
 #ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -45,6 +46,7 @@ bool parseCounter(const std::string& text,int64_t& value) {
     const auto parsed=std::from_chars(text.data(),text.data()+text.size(),value);
     return parsed.ec==std::errc{} && parsed.ptr==text.data()+text.size() && value>=-1000000000 && value<=1000000000;
 }
+void validateUiText(const std::string& text){checkText(text);}
 void validateCompiledUi(const CompiledUi& asset) {
     require(!asset.nodes.empty() && asset.nodes.size()<=65535 && asset.actions.size()<=65535,"Invalid compiled UI counts");
     require(asset.images.size()<=512,"Too many UI images");uint64_t imageBytes=0;
@@ -55,10 +57,15 @@ void validateCompiledUi(const CompiledUi& asset) {
     }
     const auto& root=asset.nodes[0];
     require(root.kind==UiKind::Panel && root.parent==NoIndex && root.subtreeEnd==asset.nodes.size() && root.bounds.w>=320 && root.bounds.h>=240,"Invalid root canvas");
-    std::vector<uint32_t> ancestors;
+    std::vector<uint32_t> ancestors;std::set<std::string> ids;
     for(uint32_t i=0;i<asset.nodes.size();++i) {
         const auto& node=asset.nodes[i];
-        require(uint32_t(node.kind)<=uint32_t(UiKind::Image),"Unsupported compiled widget");
+        require(uint32_t(node.kind)<=uint32_t(UiKind::List),"Unsupported compiled widget");
+        checkText(node.id);checkText(node.bindText);
+        require(node.id.empty() || (node.id.size()<=80 && ids.insert(node.id).second),"Duplicate/invalid compiled UI ID");
+        require(uint32_t(node.layout)<=uint32_t(UiLayout::Grid) && node.columns>=1 && node.columns<=128,"Invalid UI layout");
+        for(float value:{node.anchorX,node.anchorY,node.pivotX,node.pivotY})require(std::isfinite(value)&&value>=0&&value<=1,"Invalid UI anchor/pivot");
+        require(geometry(node.padding)&&node.padding>=0&&geometry(node.gap)&&node.gap>=0&&geometry(node.rowHeight)&&node.rowHeight>=1,"Invalid UI spacing");
         require(uint32_t(node.fit)<=uint32_t(ImageFit::Stretch),"Invalid image fit");
         require(node.kind==UiKind::Image?node.image<asset.images.size():node.image==NoIndex,"Invalid image index");
         require(node.subtreeEnd>i && node.subtreeEnd<=asset.nodes.size(),"Invalid subtree range");
@@ -96,7 +103,7 @@ void validateCompiledUi(const CompiledUi& asset) {
 std::vector<uint8_t> encodeUi(const CompiledUi& asset) {
     validateCompiledUi(asset);std::vector<uint8_t> payload,pool;
     size_t pixelBytes=0;for(const auto& image:asset.images) pixelBytes+=image.rgba.size();
-    payload.reserve(asset.nodes.size()*80+asset.actions.size()*32+asset.images.size()*16+pixelBytes);
+    payload.reserve(asset.nodes.size()*144+asset.actions.size()*32+asset.images.size()*16+pixelBytes);
     auto text=[&](const std::string& value) {u32(payload,uint32_t(pool.size()));u32(payload,uint32_t(value.size()));pool.insert(pool.end(),value.begin(),value.end());};
     for(const auto& node:asset.nodes) {
         u32(payload,uint32_t(node.kind));u32(payload,node.parent);u32(payload,node.subtreeEnd);u32(payload,node.action);
@@ -104,6 +111,8 @@ std::vector<uint8_t> encodeUi(const CompiledUi& asset) {
         u32(payload,node.color);u32(payload,node.textColor);f32(payload,node.fontSize);u32(payload,(node.visible?1:0)|(node.integerText?2:0));
         text(node.text);u64(payload,std::bit_cast<uint64_t>(node.integerValue));
         u32(payload,node.image);u32(payload,uint32_t(node.fit));u32(payload,node.tint);u32(payload,0);
+        text(node.id);text(node.bindText);u64(payload,node.event);u32(payload,uint32_t(node.layout));
+        f32(payload,node.padding);f32(payload,node.gap);f32(payload,node.anchorX);f32(payload,node.anchorY);f32(payload,node.pivotX);f32(payload,node.pivotY);f32(payload,node.rowHeight);u32(payload,node.columns);u32(payload,(node.fillX?1u:0u)|(node.fillY?2u:0u));
     }
     for(const auto& action:asset.actions) {u32(payload,uint32_t(action.op));u32(payload,action.target);f32(payload,action.number);u32(payload,action.packed);u64(payload,std::bit_cast<uint64_t>(action.integer));text(action.text);}
     uint32_t pixelOffset=0;
@@ -112,7 +121,7 @@ std::vector<uint8_t> encodeUi(const CompiledUi& asset) {
     for(const auto& image:asset.images) payload.insert(payload.end(),image.rgba.begin(),image.rgba.end());
     require(payload.size()+32<=128*1024*1024,"Compiled UI exceeds 128 MiB");
     std::vector<uint8_t> bytes={'G','M','U','I'};
-    u32(bytes,2);u32(bytes,uint32_t(asset.nodes.size()));u32(bytes,uint32_t(asset.actions.size()));u32(bytes,uint32_t(pool.size()));
+    u32(bytes,3);u32(bytes,uint32_t(asset.nodes.size()));u32(bytes,uint32_t(asset.actions.size()));u32(bytes,uint32_t(pool.size()));
     u32(bytes,uint32_t(asset.images.size()));u32(bytes,uint32_t(pixelBytes));u32(bytes,checksum(payload));
     bytes.reserve(32+payload.size());
     bytes.insert(bytes.end(),payload.begin(),payload.end());return bytes;
@@ -120,13 +129,13 @@ std::vector<uint8_t> encodeUi(const CompiledUi& asset) {
 CompiledUi decodeUi(std::span<const uint8_t> bytes) {
     require(bytes.size()>=24 && bytes.size()<=128*1024*1024,"Invalid UI resource size");
     require(bytes[0]=='G' && bytes[1]=='M' && bytes[2]=='U' && bytes[3]=='I',"Expected compiled .gmui resource; compile JSON with gm_uic first");
-    Reader r{bytes,4};const auto version=r.u32();require(version==1 || version==2,"Unsupported UI binary version");
+    Reader r{bytes,4};const auto version=r.u32();require(version>=1 && version<=3,"Unsupported UI binary version");
     const auto nodes=r.u32(),actions=r.u32(),strings=r.u32();
-    const auto images=version==2?r.u32():0,pixels=version==2?r.u32():0,hash=r.u32();
-    const size_t header=version==2?32:24;
+    const auto images=version>=2?r.u32():0,pixels=version>=2?r.u32():0,hash=r.u32();
+    const size_t header=version>=2?32:24;
     require(nodes>0 && nodes<=65535 && actions<=65535,"Invalid resource counts");
     require(images<=512 && pixels<=MaxImageBytes,"Invalid image section counts");
-    const uint64_t poolStart=header+(version==2?80ull:64ull)*nodes+32ull*actions+16ull*images;
+    const uint64_t poolStart=header+(version==3?144ull:version==2?80ull:64ull)*nodes+32ull*actions+16ull*images;
     require(poolStart+strings+pixels==bytes.size(),"Invalid binary section sizes");
     require(checksum(bytes.subspan(header))==hash,"UI resource checksum mismatch");
     auto text=[&]() {uint32_t offset=r.u32(),length=r.u32();require(uint64_t(offset)+length<=strings && length<=2048,"Text offset is out of bounds");return std::string(reinterpret_cast<const char*>(bytes.data()+poolStart+offset),length);};
@@ -136,8 +145,9 @@ CompiledUi decodeUi(std::span<const uint8_t> bytes) {
         node.bounds={r.f32(),r.f32(),r.f32(),r.f32()};node.color=r.u32();node.textColor=r.u32();node.fontSize=r.f32();
         auto flags=r.u32();require(flags<=3,"Unknown node flags");node.visible=bool(flags&1);node.integerText=bool(flags&2);
         node.text=text();node.integerValue=r.i64();
-        if(version==2) {node.image=r.u32();node.fit=ImageFit(r.u32());node.tint=r.u32();require(r.u32()==0,"Unknown image flags");}
+        if(version>=2) {node.image=r.u32();node.fit=ImageFit(r.u32());node.tint=r.u32();require(r.u32()==0,"Unknown image flags");}
         else require(node.kind<=UiKind::Button,"Invalid version 1 widget");
+        if(version==3){node.id=text();node.bindText=text();node.event=uint64_t(r.i64());node.layout=UiLayout(r.u32());node.padding=r.f32();node.gap=r.f32();node.anchorX=r.f32();node.anchorY=r.f32();node.pivotX=r.f32();node.pivotY=r.f32();node.rowHeight=r.f32();node.columns=r.u32();auto layoutFlags=r.u32();require(layoutFlags<=3,"Invalid layout flags");node.fillX=bool(layoutFlags&1);node.fillY=bool(layoutFlags&2);}
         asset.nodes.push_back(std::move(node));
     }
     for(uint32_t i=0;i<actions;++i) {UiAction action;action.op=UiOp(r.u32());action.target=r.u32();action.number=r.f32();action.packed=r.u32();action.integer=r.i64();action.text=text();asset.actions.push_back(std::move(action));}

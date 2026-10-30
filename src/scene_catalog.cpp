@@ -63,7 +63,7 @@ std::vector<SceneEntry> loadCatalog(const std::filesystem::path &path) {
         SceneEntry e{string(in), string(in), string(in)};
         auto file = std::filesystem::path(std::u8string(e.file.begin(), e.file.end()));
         check(!file.is_absolute() && !file.empty() && file.lexically_normal().begin()->string() != ".." &&
-                  file.extension() == ".gmscene",
+                  (file.extension() == ".gmscene" || file.extension()==".gmprefab"),
               "Unsafe catalog file path");
         check(ids.insert(e.id).second, "Duplicate catalog ID");
         entries.push_back(std::move(e));

@@ -42,7 +42,7 @@ int main() {
         check(std::string(bytes.begin(),bytes.end()).find("rgba.png")==std::string::npos,"Source path leaked into binary");
         auto bad=asset;bad.nodes[4].image=999;rejects([&]{gm::encodeUi(bad);},"Invalid image index accepted");
         bad=asset;bad.images[0].rgba.pop_back();rejects([&]{gm::encodeUi(bad);},"Invalid RGBA length accepted");
-        const size_t table=32+80*asset.nodes.size()+32*asset.actions.size();
+        const size_t table=32+144*asset.nodes.size()+32*asset.actions.size();
         auto corrupt=bytes;put(corrupt,table,0xffffffff);rehash(corrupt);rejects([&]{gm::decodeUi(corrupt);},"Oversized image dimensions accepted");
         corrupt=bytes;put(corrupt,table+8,4);rehash(corrupt);rejects([&]{gm::decodeUi(corrupt);},"Noncontiguous pixels accepted");
         corrupt=bytes;put(corrupt,table+12,4);rehash(corrupt);rejects([&]{gm::decodeUi(corrupt);},"Incorrect image byte length accepted");
