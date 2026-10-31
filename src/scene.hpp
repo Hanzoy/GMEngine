@@ -4,6 +4,7 @@
 #include "fixed_step.hpp"
 #include "storage.hpp"
 #include "runtime_layout.hpp"
+#include "spatial_grid.hpp"
 #include <memory>
 #include <array>
 namespace gm {
@@ -55,6 +56,8 @@ struct SceneSprite {
     float order;
     sdk::WorldPosition transform{};
     sdk::SpriteRegion region{};
+    sdk::WorldPosition previous{};
+    bool moving=false;
 };
 struct SceneCamera {
     sdk::WorldPosition transform;
@@ -88,7 +91,7 @@ class SceneRuntime {
     uint32_t advance(double elapsed, SceneInput input);
     void resetClock() {
         clock_.reset();
-        pendingInput_={};uiPressed_=uiFocused_=NoIndex;
+        pendingInput_={};uiPressed_=uiFocused_=NoIndex;interpolate_=false;
     }
     sdk::Entity create(sdk::Entity parent = 0);
     void destroy(sdk::Entity entity);
@@ -113,6 +116,7 @@ class SceneRuntime {
     std::filesystem::path loadSlot(const std::string& slot);
     std::string takeSceneRequest();
     SceneCamera camera() const;
+    SceneCamera renderCamera() const;
     std::vector<sdk::Entity> queryArea(Rect area, uint32_t mask = 65535) const;
     RayHit raycast(float x, float y, float dx, float dy, float length, uint32_t mask = 65535) const;
     void reset();
@@ -127,6 +131,11 @@ class SceneRuntime {
     const std::vector<SceneSprite> &sprites() const {
         return sprites_;
     }
+    static constexpr uint32_t SpriteBlockSize=64;
+    SpatialGrid::Query visibleSprites(Rect worldArea) const {return spriteGrid_.query(worldArea);}
+    const std::vector<uint64_t>& spriteBlocks() const {return spriteBlockVersions_;}
+    uint64_t renderVersion() const {return renderVersion_;}
+    double renderAlpha() const {return interpolate_?clock_.alpha():1.;}
     const std::vector<sdk::CanvasCommand> &canvas() const;
     RuntimeDocument &hud() {
         return *hud_;
@@ -141,6 +150,11 @@ class SceneRuntime {
     std::unique_ptr<RuntimeDocument> hud_;
     std::vector<SceneSprite> sprites_;
     std::vector<uint32_t> spriteRows_;
+    SpatialGrid spriteGrid_;
+    std::vector<uint64_t> spriteBlockVersions_;
+    uint64_t renderVersion_=0;
+    bool interpolate_=false,extractingTick_=false;
+    SceneCamera previousCamera_{}, currentCamera_{};
     FixedStep clock_;
     SceneInput pendingInput_{};
     double simulationMs_ = 0;

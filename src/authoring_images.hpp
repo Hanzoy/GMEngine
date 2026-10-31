@@ -11,7 +11,7 @@ public:
     void sprite(const Json& node,const std::array<float,8>& points,Rect uv,const std::filesystem::path& directory);
     std::string description(const std::filesystem::path& path) const;
 private:
-    struct Entry {bgfx::TextureHandle handle=BGFX_INVALID_HANDLE;std::string error;uint32_t width=0,height=0;};
+    struct Entry {ImageHandle handle{};std::string error;uint32_t width=0,height=0;};
     Renderer& renderer_;
     uint64_t bytes_=0;
     std::unordered_map<std::filesystem::path,Entry> cache_;

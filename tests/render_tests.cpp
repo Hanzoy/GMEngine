@@ -32,8 +32,17 @@ int main(int argc,char** argv) {
             }
             for(int i=0;i<3;++i) {
                 images.reload();renderer.begin(960,600);view.render(renderer,images,960,600);renderer.end();
-                if(renderer.stats().imageUploads!=2 || renderer.imageTextureCount()!=2) throw std::runtime_error("Image reload leaked GPU textures");
+                if(renderer.stats().imageUploads!=0 || renderer.imageTextureCount()!=2) throw std::runtime_error("Unchanged reload reuploaded or leaked GPU textures");
             }
+            gm::RuntimeDocument secondImages{std::filesystem::path(argv[2])};gm::RuntimeView secondView;
+            renderer.begin(960,600);secondView.render(renderer,secondImages,960,600);renderer.end();
+            if(renderer.stats().imageUploads||renderer.imageTextureCount()!=2)throw std::runtime_error("Images not shared across views");
+            secondView.clear(renderer);
+            if(renderer.imageTextureCount()!=2)throw std::runtime_error("Releasing one view destroyed shared images");
+            for(int frame=0;frame<6;++frame){renderer.begin(960,600);view.render(renderer,images,960,600);renderer.end();}
+            if(!renderer.stats().cachedDraws||renderer.stats().vertexUploadBytes||renderer.stats().geometryBuilds)throw std::runtime_error("Static UI rebuilt or uploaded vertices");
+            renderer.begin(800,600);view.render(renderer,images,800,600);renderer.end();
+            if(!renderer.stats().vertexUploadBytes)throw std::runtime_error("Resize did not invalidate cached geometry");
             for(uint32_t i=0;i<images.nodes().size();++i) if(images.nodes()[i].kind==gm::UiKind::Button) images.activate(i);
             std::vector<uint32_t> tints;for(const auto& node:images.nodes()) tints.push_back(node.tint);
             images.restoreImagePixels();
@@ -68,6 +77,9 @@ int main(int argc,char** argv) {
             if(renderer.stats().quads>32)throw std::runtime_error("List did not virtualize 10,000 rows");
             listDocument.scroll(1,280000);renderer.begin(960,600);listView.render(renderer,listDocument,960,600);renderer.end();
             if(renderer.stats().quads>32)throw std::runtime_error("Scrolled list did not virtualize rows");listView.clear(renderer);
+            view.clear(renderer);renderer.trimImages(true);renderer.begin(960,600);renderer.end();
+            if(renderer.stats().imageTextureBytes||renderer.imageTextureCount())throw std::runtime_error("Unused image pool did not release GPU memory");
+            std::cout<<"PASS: shared textures, unchanged reload, stable UI buffers, resize invalidation, pool reclamation\n";
             std::cout<<"PASS: dynamic mixed labels reuse textures; unique text churn evicts within budget\n";
             std::cout<<"PASS: 2 unique image uploads, no uploads/layout rebuilds for 7 image actions, no texture leaks across 3 reloads\n";
             std::cout<<"PASS: solid batching, "<<initialDraws<<" counter draw calls, zero text texture uploads for 20 increments, one layout build\n";

@@ -621,7 +621,7 @@ SceneRuntime::~SceneRuntime() {impl_.reset();}
 void SceneRuntime::reset() {
     auto hud = std::make_unique<RuntimeDocument>(asset_.hud);
     auto next = std::make_unique<Impl>(asset_, registry_,hud.get());
-    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;
+    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;spriteRevision_=UINT64_MAX;interpolate_=false;
     hud_ = std::move(hud);uiLayout_={};uiPressed_=uiFocused_=NoIndex;
     clock_.reset();
     pendingInput_ = {};
@@ -639,7 +639,7 @@ void SceneRuntime::restore(CompiledScene scene) {
     spriteRevision_ = 0;
     spriteRows_.clear();
     sprites_.clear();
-    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;
+    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;spriteRevision_=UINT64_MAX;interpolate_=false;
     hud_ = std::move(hud);uiLayout_={};uiPressed_=uiFocused_=NoIndex;
     clock_.reset();
     pendingInput_ = {};
@@ -648,6 +648,7 @@ void SceneRuntime::restore(CompiledScene scene) {
     syncUi();
 }
 uint32_t SceneRuntime::advance(double elapsed, SceneInput input) {
+    interpolate_=true;
     auto edges = pendingInput_.pointer;
     pendingInput_ = input;
     auto &p = pendingInput_.pointer;
@@ -657,6 +658,7 @@ uint32_t SceneRuntime::advance(double elapsed, SceneInput input) {
     else {p.touchCount=0;p.pressed=p.released=0;p.wheel=0;for(auto &key:p.keyPress)key=0;}
     return clock_.advance(elapsed, [&](float dt) {
         tick(dt, pendingInput_);
+        interpolate_=true;
         p.pressed = p.released = 0; p.wheel = 0;
         for (auto &key : p.keyPress) key = 0;
         uint32_t count=0;for(uint32_t i=0;i<p.touchCount;++i)if(p.touches[i].down){auto t=p.touches[i];t.pressed=t.released=0;p.touches[count++]=t;}p.touchCount=count;
@@ -664,6 +666,7 @@ uint32_t SceneRuntime::advance(double elapsed, SceneInput input) {
 }
 const std::vector<sdk::CanvasCommand> &SceneRuntime::canvas() const { return impl_->canvas; }
 void SceneRuntime::tick(float dt, SceneInput input) {
+    interpolate_=false;
     if (!std::isfinite(dt) || dt < 0 || !std::isfinite(input.x) || !std::isfinite(input.y) ||
         !std::isfinite(input.pointer.mouseX) || !std::isfinite(input.pointer.mouseY) || !std::isfinite(input.pointer.wheel))
         throw std::runtime_error("Invalid simulation input");
@@ -694,41 +697,41 @@ void SceneRuntime::tick(float dt, SceneInput input) {
     impl_->phase(sdk::Phase::Late);
     impl_->transforms();
     auto collisionStart=Clock::now();impl_->collisions();collisionMs_=ms(collisionStart);
-    auto extractionStart=Clock::now();extract();extractionMs_=ms(extractionStart);
+    auto extractionStart=Clock::now();extractingTick_=true;try{extract();}catch(...){extractingTick_=false;throw;}extractingTick_=false;extractionMs_=ms(extractionStart);
     uiStart=Clock::now();syncUi();uiMs_+=ms(uiStart);
     simulationMs_ = ms(start);
     frameTimes_[frameCursor_++%frameTimes_.size()]=simulationMs_;frameSamples_=std::min(frameSamples_+1,uint32_t(frameTimes_.size()));
 }
+namespace {
+bool sameTransform(const sdk::WorldPosition& a,const sdk::WorldPosition& b){return a.x==b.x&&a.y==b.y&&a.a==b.a&&a.b==b.b&&a.c==b.c&&a.d==b.d;}
+Rect spriteBounds(const SceneSprite& s,const sdk::WorldPosition& t){
+    float x[]={t.x,t.x+t.a*s.box.w,t.x+t.c*s.box.h,t.x+t.a*s.box.w+t.c*s.box.h};
+    float y[]={t.y,t.y+t.b*s.box.w,t.y+t.d*s.box.h,t.y+t.b*s.box.w+t.d*s.box.h};
+    auto [l,r]=std::minmax_element(std::begin(x),std::end(x));auto [top,bottom]=std::minmax_element(std::begin(y),std::end(y));return {*l,*top,*r-*l,*bottom-*top};
+}
+Rect sweepBounds(const SceneSprite& s){auto b=spriteBounds(s,s.transform);if(!s.moving)return b;auto previous=s.transform;previous.x=s.previous.x;previous.y=s.previous.y;auto p=spriteBounds(s,previous);auto x=std::min(b.x,p.x),y=std::min(b.y,p.y);return {x,y,std::max(b.x+b.w,p.x+p.w)-x,std::max(b.y+b.h,p.y+p.h)-y};}
+}
+SceneCamera SceneRuntime::renderCamera() const {auto result=currentCamera_;auto a=float(renderAlpha());result.transform.x=previousCamera_.transform.x+(result.transform.x-previousCamera_.transform.x)*a;result.transform.y=previousCamera_.transform.y+(result.transform.y-previousCamera_.transform.y)*a;return result;}
 void SceneRuntime::extract() {
-    if (spriteRevision_ != impl_->structureRevision || spriteRows_.size() != impl_->records.size()) {
-        sprites_.clear();
-        spriteRows_.assign(impl_->records.size(), NoIndex);
-        spriteRevision_ = impl_->structureRevision;
-    }
-    bool reorder = false;
-    impl_->context().each<const Impl::EntityIndex, const sdk::WorldPosition, const SpriteRenderer>(
-        [&](sdk::Entity e, const Impl::EntityIndex &index, const sdk::WorldPosition &p,
-            const SpriteRenderer &s) {
-            auto &row = spriteRows_[index.value];
-            if (row == NoIndex) {
-                row = uint32_t(sprites_.size());
-                sprites_.push_back({});
-                reorder = true;
-            }
-            auto &out = sprites_[row];
-            reorder |= out.order != s.order;
-            out = {index.value, {p.x, p.y, s.width, s.height}, s.image, s.tint, s.order, p, {}};
-            if (auto *region = static_cast<const sdk::SpriteRegion *>(
-                    Impl::raw(*impl_, e, sdk::id(sdk::SpriteRegion::gm_name))))
-                out.region = *region;
-        });
-    if (reorder) {
-        std::sort(sprites_.begin(), sprites_.end(), [](const auto &a, const auto &b) {
-            return a.order == b.order ? a.entity < b.entity : a.order < b.order;
-        });
-        for (uint32_t i = 0; i < sprites_.size(); ++i)
-            spriteRows_[sprites_[i].entity] = i;
-    }
+    auto nextCamera=camera();previousCamera_=extractingTick_?currentCamera_:nextCamera;currentCamera_=nextCamera;
+    bool rebuild=spriteRevision_!=impl_->structureRevision||spriteRows_.size()!=impl_->records.size();
+    if(rebuild){sprites_.clear();spriteRows_.assign(impl_->records.size(),NoIndex);spriteRevision_=impl_->structureRevision;}
+    bool reorder=false;std::vector<uint32_t> changed;
+    impl_->context().each<const Impl::EntityIndex,const sdk::WorldPosition,const SpriteRenderer>([&](sdk::Entity e,const Impl::EntityIndex& index,const sdk::WorldPosition& p,const SpriteRenderer& s){
+        auto &row=spriteRows_[index.value];bool created=row==NoIndex;
+        if(created){row=uint32_t(sprites_.size());sprites_.push_back({});reorder=true;}
+        auto& out=sprites_[row];sdk::SpriteRegion region{};
+        if(auto* value=static_cast<const sdk::SpriteRegion*>(Impl::raw(*impl_,e,sdk::id(sdk::SpriteRegion::gm_name))))region=*value;
+        bool moved=!created&&!sameTransform(out.transform,p);
+        bool dirty=created||moved||out.moving||out.box.w!=s.width||out.box.h!=s.height||out.image!=s.image||out.tint!=s.tint||out.order!=s.order||out.region.u0!=region.u0||out.region.v0!=region.v0||out.region.u1!=region.u1||out.region.v1!=region.v1;
+        reorder|=out.order!=s.order;
+        auto previous=(!created&&extractingTick_)?out.transform:p;
+        out={index.value,{p.x,p.y,s.width,s.height},s.image,s.tint,s.order,p,region,previous,extractingTick_&&moved};
+        if(dirty)changed.push_back(row);
+    });
+    if(reorder){std::sort(sprites_.begin(),sprites_.end(),[](const auto& a,const auto& b){return a.order==b.order?a.entity<b.entity:a.order<b.order;});for(uint32_t i=0;i<sprites_.size();++i)spriteRows_[sprites_[i].entity]=i;rebuild=true;}
+    if(rebuild){spriteGrid_.clear();spriteBlockVersions_.assign((sprites_.size()+SpriteBlockSize-1)/SpriteBlockSize,++renderVersion_);for(uint32_t i=0;i<sprites_.size();++i)spriteGrid_.set(i,sweepBounds(sprites_[i]));}
+    else for(auto row:changed){spriteGrid_.set(row,sweepBounds(sprites_[row]));spriteBlockVersions_[row/SpriteBlockSize]=++renderVersion_;}
 }
 void SceneRuntime::syncUi() {
     for (size_t i = 0; i < asset_.bindings.size(); ++i) {
@@ -1085,7 +1088,7 @@ void SceneRuntime::restoreCheckpoint(std::span<const uint8_t> bytes) {
         next->contacts.insert(std::minmax(first, second));
     }
     asset_ = std::move(saved.scene);
-    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;
+    impl_ = std::move(next);impl_->owner=this;++imageRevision_;frameSamples_=frameCursor_=0;spriteRevision_=UINT64_MAX;interpolate_=false;
     hud_ = std::move(hud);uiLayout_={};uiPressed_=uiFocused_=NoIndex;
     clock_ = clock;
     pendingInput_ = {};

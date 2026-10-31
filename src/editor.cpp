@@ -2,6 +2,7 @@
 #include "editor_documents.hpp"
 #include "ui_compiler.hpp"
 #include "renderer.hpp"
+#include "render_diagnostics.hpp"
 #include "ui_runtime.hpp"
 #include "authoring_images.hpp"
 #include "editor_layout.hpp"
@@ -88,9 +89,10 @@ public:
             if(op=="dialog.project.open"||op=="dialog.project.new"){projectDialog(op=="dialog.project.new");return state();}
             if(op=="view.inspector"){auto page=request.at("page").get<std::string>();if(page!="components"&&page!="systems"&&page!="project"&&page!="profiler")throw std::runtime_error("Unknown inspector page");if(page=="systems"&&!sceneMode())throw std::runtime_error("Open a scene to edit Systems");inspectorPage_=page;assetInspection_=false;inspectorScroll_=0;return state();}
             if(op=="view.scene"){sceneGameView_=request.at("game").get<bool>()&&scenePlay_;setGameFocus(false);return state();}
+            if(op=="runtime.render.stats")return {{"ok",true},{"result",gm::renderDiagnostics(renderer_->stats())}};
             if(op=="runtime.query")return sceneRuntimeState();
             if(op.starts_with("runtime.")&&op!="runtime.step"&&op!="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");auto result=gm::runtimeCommand(*scenePlay_,request,gameProject_);if(op=="runtime.load"||op=="runtime.scene.switch")sceneView_->clear();requestFrame();return result;}
-            if(op=="preview.pause"){if(!scenePlay_)throw std::runtime_error("Scene is not running");scenePaused_=request.value("paused",!scenePaused_);return sceneRuntimeState();}
+            if(op=="preview.pause"){if(!scenePlay_)throw std::runtime_error("Scene is not running");scenePaused_=request.value("paused",!scenePaused_);scenePlay_->resetClock();return sceneRuntimeState();}
             if(op=="preview.step"||op=="runtime.step"){if(!scenePlay_||!scenePaused_)throw std::runtime_error("Pause the scene before stepping");auto frames=request.value("frames",1);if(frames<1||frames>10000)throw std::runtime_error("frames must be 1..10000");for(int i=0;i<frames;++i)scenePlay_->tick(1.f/60,{request.value("x",0.f),request.value("y",0.f)});return sceneRuntimeState();}
             if(op=="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");if(!scenePlay_->activateUi(request.at("node").get<uint32_t>(),request.value("row",-1)))throw std::runtime_error("UI action not found");return sceneRuntimeState();}
             if(request.contains("expected_revision") && request["expected_revision"]!=doc_.revision()) throw std::runtime_error("Revision conflict; query again");

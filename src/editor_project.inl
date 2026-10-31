@@ -35,7 +35,7 @@ void inspectorTabs(Rect r){renderer_->rect({r.x,r.y,r.w,30*scale_},C("#282B30"))
 void drawProfiler(Rect r) {
     Rect body{r.x+14*scale_,r.y+40*scale_,r.w-28*scale_,r.h-48*scale_};
     if(!scenePlay_){text(body.x,body.y,"运行场景后查看每步模拟与 System 耗时。",12,muted(),body.w);return;}
-    auto stats=scenePlay_->stats();
+    auto stats=scenePlay_->stats();const auto& render=renderer_->stats();
     auto number=[](double v){char buffer[48];std::snprintf(buffer,sizeof(buffer),"%.3f ms",v);return std::string(buffer);};
     std::vector<std::string> lines{
         "模拟: "+number(stats.simulationMs),
@@ -46,6 +46,23 @@ void drawProfiler(Rect r) {
         "实体: "+std::to_string(stats.entities)+"   查询缓存: "+std::to_string(stats.queries),
         "组件有效数据: "+std::to_string(stats.componentBytes)+" B",
         "积压丢弃: "+std::to_string(stats.droppedSeconds)+" s"};
+    auto time=[&](double v){return v<0?std::string("不可用"):number(v);};
+    auto memory=[](uint64_t b){char s[48];std::snprintf(s,sizeof(s),"%.2f MiB",double(b)/1048576);return std::string(s);};
+    lines.insert(lines.end(),{
+        "渲染后端: "+render.backend,
+        "渲染前端 CPU: "+time(render.frontendMs),
+        "提交 / 等待: "+time(render.presentWaitMs),
+        "渲染线程 CPU: "+time(render.renderCpuMs),
+        "GPU: "+time(render.gpuMs)+"  帧 "+std::to_string(render.gpuFrame),
+        "GPU 结果延迟返回；非当前模拟帧。",
+        "绘制: "+std::to_string(render.drawCalls)+"  缓存: "+std::to_string(render.cachedDraws),
+        "精灵总数: "+std::to_string(render.totalSprites),
+        "候选 / 可见: "+std::to_string(render.spriteCandidates)+" / "+std::to_string(render.visibleSprites),
+        "图片: "+memory(render.imageTextureBytes)+"  纹理 "+std::to_string(render.imageTextures),
+        "文字: "+memory(render.textTextureBytes),
+        "几何缓存: "+memory(render.geometryBytes),
+        "本帧顶点上传: "+std::to_string(render.vertexUploadBytes)+" B",
+        "本帧纹理上传: "+std::to_string(render.uploadBytes)+" B"});
     float height=34+float(lines.size())*25+14+float(stats.systems.size())*78+28;
     inspectorScroll_=std::clamp(inspectorScroll_,0.f,std::max(0.f,height-body.h/scale_));
     float y=body.y-inspectorScroll_*scale_;renderer_->clip(body);

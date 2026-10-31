@@ -1,6 +1,8 @@
-# GM Engine 0.9.0（开发版）
+# GM Engine 0.9.1（开发版）
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
+
+0.9.1 增加渲染诊断、空间查询、跨视图图片共享、小图集、静态 GPU 几何缓存，以及精灵/相机平移插值。保持 ABI 10 和资源格式；测试方法、性能对比及限制见 [渲染优化说明](docs/rendering-v091.md)。
 
 0.9.0 增加原生局域网联机、游戏后台任务、音频总线、异步共享资源、独立预制体、UI 流布局 / 字符串绑定 / 虚拟列表、动作映射 / 多点触摸，以及 Android ARM64 最小 Player 和 APK 构建。SDK 升至 **ABI 10**，旧游戏模块需重新构建。合作建造和 Touch Lab 是独立游戏示例；Steam 后端尚未实现，Android 已编译打包但尚未真机验证。接口、运行方法、容量限制和测试证据见 [0.9 开发说明](docs/engine-v09.md)。
 
@@ -12,10 +14,10 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 ## 安装和启动
 
-0.9.0 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
+0.9.1 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.9.0-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.9.0-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.9.1-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.9.1-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
 

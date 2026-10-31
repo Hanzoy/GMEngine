@@ -45,6 +45,10 @@ try {
         $live='{"op":"preview.run","paused":true}'|& $cli --live $session|Out-String|ConvertFrom-Json
         $state='{"op":"runtime.query"}'|& $cli --live $session|Out-String|ConvertFrom-Json
         Check ($live.ok -and $state.ok -and $state.entities.Count -eq 1 -and $state.paused) 'Installed GUI opens and runs a new project with no build tool available'
+        $panel='{"op":"view.inspector","page":"profiler"}'|& $cli --live $session|Out-String|ConvertFrom-Json
+        $render='{"op":"runtime.render.stats"}'|& $cli --live $session|Out-String|ConvertFrom-Json
+        Check ($panel.ok -and $render.ok -and $render.result.available -and $render.result.frame -gt 0 -and $render.result.drawCalls -gt 0 -and $render.result.backend) 'Profiler panel and live CLI expose completed GPU renderer counters'
+        $render.result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $fixture 'render-stats.json') -Encoding utf8
         '{"op":"preview.stop"}'|& $cli --live $session|Out-Null
         Stop-Process -Id $editor.Id
         $editor=$null

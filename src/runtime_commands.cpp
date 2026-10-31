@@ -76,6 +76,7 @@ Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &p
             throw std::runtime_error("Runtime entity not found");
         return run.entity(index);
     };
+    if(op=="runtime.render.stats")return {{"ok",true},{"result",{{"available",false},{"reason","No GPU renderer in the headless runtime; connect gmctl to the live editor"}}}};
     if (op == "runtime.stats") {
         auto stats = run.stats();
         Json systems = Json::array();

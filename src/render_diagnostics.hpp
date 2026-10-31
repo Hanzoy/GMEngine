@@ -1,0 +1,48 @@
+#pragma once
+// Tooling-only adapter: the renderer and packaged Player remain JSON-free.
+#include "document.hpp"
+#include "renderer.hpp"
+namespace gm {
+inline Json renderDiagnostics(const Renderer::Stats &s) {
+    auto measured = [](double value) -> Json { return value < 0 ? Json(nullptr) : Json(value); };
+    return {{"available", s.frame > 0},
+            {"frame", s.frame},
+            {"backend", s.backend},
+            {"frontendMs", s.frontendMs},
+            {"submitWaitMs", s.presentWaitMs},
+            {"renderThreadMs", measured(s.renderCpuMs)},
+            {"gpuMs", measured(s.gpuMs)},
+            {"gpuFrame", s.gpuFrame},
+            {"gpuResultsDelayed", true},
+            {"waitRenderMs", measured(s.waitRenderMs)},
+            {"waitSubmitMs", measured(s.waitSubmitMs)},
+            {"drawCalls", s.drawCalls},
+            {"backendDraws", s.backendDraws},
+            {"quads", s.quads},
+            {"totalSprites", s.totalSprites},
+            {"spriteCandidates", s.spriteCandidates},
+            {"visibleSprites", s.visibleSprites},
+            {"submittedSprites", s.submittedSprites},
+            {"visibleBlocks", s.visibleBlocks},
+            {"imageUploads", s.imageUploads},
+            {"imageCacheHits", s.imageCacheHits},
+            {"imageEntries", s.imageEntries},
+            {"imageTextures", s.imageTextures},
+            {"imageAtlasPages", s.imageAtlasPages},
+            {"imageTextureBytes", s.imageTextureBytes},
+            {"imageEvictions", s.imageEvictions},
+            {"textUploads", s.textUploads},
+            {"textEvictions", s.textEvictions},
+            {"textTextureBytes", s.textTextureBytes},
+            {"textCacheEntries", s.textCacheEntries},
+            {"textAtlasPages", s.textAtlasPages},
+            {"geometryBuilds", s.geometryBuilds},
+            {"geometryEntries", s.geometryEntries},
+            {"cachedDraws", s.cachedDraws},
+            {"geometryBytes", s.geometryBytes},
+            {"textureUploadBytes", s.uploadBytes},
+            {"vertexUploadBytes", s.vertexUploadBytes},
+            {"adapterMemoryUsedBytes", s.gpuMemoryBytes < 0 ? Json(nullptr) : Json(s.gpuMemoryBytes)},
+            {"backendTextureBytes", s.bgfxTextureBytes < 0 ? Json(nullptr) : Json(s.bgfxTextureBytes)}};
+}
+} // namespace gm
