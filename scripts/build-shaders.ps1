@@ -12,4 +12,7 @@ if(-not $ShaderCompiler){
 foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){
     & $ShaderCompiler -f "$engineSource/src/shaders/vs_2d.sc" -o "$engineSource/src/shaders/vs_2d_$($target[2]).bin.h" --type vertex --platform $target[0] -p $target[1] --varyingdef "$engineSource/src/shaders/varying.def.sc" -i "$engineSource/third_party/bgfx/src" --bin2c "vs_2d_$($target[2])" -O 3
     if($LASTEXITCODE){throw "2D shader compilation failed: $($target[0])"}
+    $header=Join-Path $engineSource "src/shaders/vs_2d_$($target[2]).bin.h"
+    # shaderc's ASCII preview comments can end in a space; normalize source only.
+    [IO.File]::WriteAllLines($header,@(Get-Content -LiteralPath $header|ForEach-Object {$_.TrimEnd()}),[Text.UTF8Encoding]::new($false))
 }
