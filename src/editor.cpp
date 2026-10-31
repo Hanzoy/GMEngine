@@ -6,6 +6,7 @@
 #include "ui_runtime.hpp"
 #include "authoring_images.hpp"
 #include "editor_layout.hpp"
+#include "editor_camera.hpp"
 #include "editor_default.hpp"
 #include "scene_compiler.hpp"
 #include "scene_view.hpp"
@@ -69,6 +70,7 @@ public:
         images_=std::make_unique<gm::AuthoringImages>(*renderer_);
         if(sceneMode()){for(const auto& e:doc_.data()["entities"])if(gm::findComponent(e,"Velocity")){doc_.execute({{"op","select"},{"id",e["id"]}});break;}selectedFolder_=doc_.path().parent_path();groups_.insert("Velocity");}
         else if(gm::findNode(doc_.data()["root"],"button")) doc_.execute({{"op","select"},{"id","button"}});
+        updateTextInput();
         logs_.push_back("已打开 " + pathText(doc_.path().filename()));
     }
     ~Editor() {
@@ -88,7 +90,9 @@ public:
             if(op.starts_with("project."))return projectCommand(request);
             if(op=="dialog.project.open"||op=="dialog.project.new"){projectDialog(op=="dialog.project.new");return state();}
             if(op=="view.inspector"){auto page=request.at("page").get<std::string>();if(page!="components"&&page!="systems"&&page!="project"&&page!="profiler")throw std::runtime_error("Unknown inspector page");if(page=="systems"&&!sceneMode())throw std::runtime_error("Open a scene to edit Systems");inspectorPage_=page;assetInspection_=false;inspectorScroll_=0;return state();}
-            if(op=="view.scene"){sceneGameView_=request.at("game").get<bool>()&&scenePlay_;setGameFocus(false);return state();}
+            if(op=="view.camera"||op=="view.navigate"||op=="view.pick")return navigationCommand(request);
+            if(op=="view.frame"){frameSelection(request.value("all",false));return state();}
+            if(op=="view.scene"){endNavigation();sceneGameView_=request.at("game").get<bool>()&&scenePlay_;setGameFocus(false);return state();}
             if(op=="runtime.render.stats")return {{"ok",true},{"result",gm::renderDiagnostics(renderer_->stats())}};
             if(op=="runtime.query")return sceneRuntimeState();
             if(op.starts_with("runtime.")&&op!="runtime.step"&&op!="runtime.activate"){if(!scenePlay_)throw std::runtime_error("Scene is not running");auto result=gm::runtimeCommand(*scenePlay_,request,gameProject_);if(op=="runtime.load"||op=="runtime.scene.switch")sceneView_->clear();requestFrame();return result;}
@@ -119,10 +123,10 @@ public:
                 return state();
             }
             if(op=="open-editor") { if(commit()) switchDocument(root_/"editor/editor.ui.json",true); return state(); }
-            if(op=="view.fit") { zoom_=1;panX_=panY_=0; return state(); }
-            if(op=="view.zoom") { zoomAt(canvasArea_.x+canvasArea_.w*.5f,canvasArea_.y+canvasArea_.h*.5f,request.at("factor").get<float>()); return state(); }
+            if(op=="view.fit") { frameSelection(true); return state(); }
+            if(op=="view.zoom") { float factor=request.at("factor").get<float>();if(!std::isfinite(factor)||factor<=0)throw std::runtime_error("Zoom factor must be finite and positive");if(sceneNavigable()&&scene3D())sceneCamera().dolly(std::log(factor)/.14f);else zoomAt(canvasArea_.x+canvasArea_.w*.5f,canvasArea_.y+canvasArea_.h*.5f,factor);return state(); }
             if(op=="view.grid") { grid_=!grid_; return state(); }
-            if(op=="view.tool") { auto tool=request.at("tool").get<std::string>();if(tool!="select" && tool!="move") throw std::runtime_error("Unknown viewport tool");tool_=tool;return state(); }
+            if(op=="view.tool") { auto tool=request.at("tool").get<std::string>();if(tool!="select" && tool!="move" && tool!="hand") throw std::runtime_error("Unknown viewport tool");tool_=tool;return state(); }
             if(op=="output.toggle") { layout_.outputOpen=!layout_.outputOpen; return state(); }
             if(op=="bottom.tab") {layout_.outputOpen=request.at("name")=="output";return state();}
             if(op=="output.clear") { logs_.clear(); errorCount_=0; return state(); }
@@ -154,8 +158,12 @@ public:
                 commands["apply"]="Apply an editor UI resource to the GUI shell";
                 commands["recover"]="Restore the GUI shell; leaves current document unchanged";
                 commands["layout.reset"]="Reset GUI panel sizes";
-                commands["view.fit"]="Fit canvas in viewport"; commands["view.zoom"]={{"factor","positive zoom factor"}};
-                commands["view.grid"]="Toggle viewport grid"; commands["view.tool"]={{"tool","select or move"}};
+                commands["view.camera"]={{"set","optional position[3], yaw, pitch, distance, speed; editor workspace only"}};
+                commands["view.navigate"]={{"action","look/orbit/pan (x,y pixels); dolly/speed (steps); fly (x,y,z,seconds<=.1,fast)"}};
+                commands["view.frame"]={{"all","false: frame selection and descendants; true: frame all"}};
+                commands["view.pick"]={{"x","0..1 viewport x"},{"y","0..1 viewport y"}};
+                commands["view.fit"]="Frame all / fit canvas"; commands["view.zoom"]={{"factor","positive zoom factor"}};
+                commands["view.grid"]="Toggle viewport grid"; commands["view.tool"]={{"tool","select, move or hand"}};
                 commands["preview.pause"]="Pause/resume a scene; optional paused boolean";commands["preview.step"]="Advance a paused scene by 1/60 second";commands["runtime.query"]="Inspect runtime components and HUD";commands["runtime.step"]={{"frames","1..10000 fixed 1/60 steps"},{"x","optional input -1..1"},{"y","optional input -1..1"}};commands["runtime.activate"]={{"node","compiled HUD button index"}};
                 return response;
             }
@@ -180,6 +188,7 @@ public:
         pollProjectTask();
         poll();
         updateScenePlay();
+        updateNavigation();
         if(previewProcess_ && WaitForSingleObject(previewProcess_,0)==WAIT_OBJECT_0) {CloseHandle(previewProcess_);previewProcess_=nullptr;requestFrame();}
         if(tooltipPending_ && std::chrono::steady_clock::now()-hoverTime_>=std::chrono::milliseconds(850)) {tooltipPending_=false;requestFrame();}
         if(IsIconic(window_) || !redraw_) return;
@@ -206,13 +215,27 @@ public:
         if(began){auto point=info.ptPixelLocation;ScreenToClient(window_,&point);setGameFocus(scenePlay_&&sceneGameView_&&canvasArea_.contains(float(point.x),float(point.y)));}
         if(!gameFocus_)return false;requestFrame();return gameInput_.pointer(window_,p,down);
     }
-    bool gameRight(bool down){if(gameFocus_)gameInput_.button(2,down);return gameFocus_;}
-    void gameBlur(){gameInput_.clear();}
+    bool rightMouse(bool down,float x,float y) {
+        requestFrame();
+        if(down){rightNavigation_=beginNavigation(x,y,2);if(rightNavigation_)return true;}
+        else if(rightNavigation_){rightNavigation_=false;endNavigation();return true;}
+        if(gameFocus_)gameInput_.button(2,down);
+        // Scene RMB belongs to navigation, including a release after focus/capture cancellation.
+        return gameFocus_||(!down&&sceneNavigable()&&canvasArea_.contains(x,y));
+    }
+    void rawMouse(LPARAM parameter) {
+        if(!navigationRaw_)return;
+        RAWINPUT data{};UINT size=sizeof(data);
+        if(GetRawInputData(reinterpret_cast<HRAWINPUT>(parameter),RID_INPUT,&data,&size,sizeof(RAWINPUTHEADER))==UINT(-1))return;
+        if(data.header.dwType==RIM_TYPEMOUSE&&!(data.data.mouse.usFlags&MOUSE_MOVE_ABSOLUTE))navigationDelta(float(data.data.mouse.lLastX),float(data.data.mouse.lLastY));
+    }
+    void gameBlur(){endNavigation();setGameFocus(false);gameInput_.clear();}
     void mouseDown(float x,float y,bool doubleClick=false,bool middle=false) {
         requestFrame();
         mouseX_=x;mouseY_=y;
         setGameFocus(scenePlay_&&sceneGameView_&&canvasArea_.contains(x,y));
         if(gameFocus_){gameInput_.button(middle?4:1,true);SetCapture(window_);scenePressed_=sceneView_->hitUi(*scenePlay_,x,y);if(scenePressed_!=gm::NoIndex)SetCapture(window_);return;}
+        if(beginNavigation(x,y,middle?4:1))return;
         if(middle && canvasArea_.contains(x,y)) { if(!commit()) return; dragMode_="pan";startX_=x;startY_=y;oldPanX_=panX_;oldPanY_=panY_;SetCapture(window_);return; }
         for(auto& [name,r]:splitters()) if(r.contains(x,y)) { if(!commit()) return;dragMode_=name;SetCapture(window_);return; }
         for(auto it=fields_.rbegin();it!=fields_.rend();++it) if(it->rect.contains(x,y)) {
@@ -225,10 +248,10 @@ public:
             if(!it->enabled) return;
             auto cmd=it->command;
             if(doubleClick && cmd.value("op",std::string())=="files.select" && (cmd["path"].get<std::string>().ends_with(".ui.json") || cmd["path"].get<std::string>().ends_with(".scene.json"))) { cmd["op"]="file.open";cmd["interactive"]=true; }
-            command(cmd); return;
+            command(cmd);if(doubleClick&&cmd.value("op",std::string())=="select")frameSelection();return;
         }
         if(canvasArea_.contains(x,y)) {
-            if(sceneMode()) {if(scenePlay_)return;for(auto it=nodes_.rbegin();it!=nodes_.rend();++it)if(it->rect.contains(x,y)){command({{"op","select"},{"id",it->id}});auto* e=selectedNode();auto* t=gm::findComponent(*e,"Transform2D");if(t&&tool_=="move"){dragMode_="scene-node";dragId_=it->id;dragRevision_=doc_.revision();startX_=x;startY_=y;nodeX_=t->at("fields")["x"].get<float>();nodeY_=t->at("fields")["y"].get<float>();dx_=dy_=0;SetCapture(window_);}return;}return;}
+            if(sceneMode()) {if(sceneNavigable()&&scene3D()){navigationCommand({{"op","view.pick"},{"x",(x-canvasArea_.x)/canvasArea_.w},{"y",(y-canvasArea_.y)/canvasArea_.h}});if(doubleClick)frameSelection();return;}if(scenePlay_)return;for(auto it=nodes_.rbegin();it!=nodes_.rend();++it)if(it->rect.contains(x,y)){command({{"op","select"},{"id",it->id}});auto* e=selectedNode();auto* t=gm::findComponent(*e,"Transform2D");if(t&&tool_=="move"){dragMode_="scene-node";dragId_=it->id;dragRevision_=doc_.revision();startX_=x;startY_=y;nodeX_=t->at("fields")["x"].get<float>();nodeY_=t->at("fields")["y"].get<float>();dx_=dy_=0;SetCapture(window_);}return;}return;}
             for(auto it=nodes_.rbegin();it!=nodes_.rend();++it) {
                 Rect resize{it->rect.x+it->rect.w-7*scale_,it->rect.y+it->rect.h-7*scale_,14*scale_,14*scale_};
                 bool handle=it->id==doc_.selected() && resize.contains(x,y);
@@ -246,6 +269,7 @@ public:
     }
     void mouseMove(float x,float y) {
         if(x!=mouseX_ || y!=mouseY_) requestFrame();
+        if(!navigationMode_.empty()&&navigationMode_!="pan2D"){if(!navigationRaw_)navigationDelta(x-mouseX_,y-mouseY_);mouseX_=x;mouseY_=y;return;}
         mouseX_=x;mouseY_=y;
         if(dragMode_=="node" || dragMode_=="resize" || dragMode_=="scene-node") {auto delta=gm::Transform2D{(x-startX_)/previewScale_,(y-startY_)/previewScale_};if(dragMode_=="scene-node")delta=sceneLocalDelta(delta.x,delta.y);dx_=std::round(delta.x);dy_=std::round(delta.y);}
         else if(dragMode_=="pan") { panX_=oldPanX_+x-startX_;panY_=oldPanY_+y-startY_; }
@@ -256,7 +280,8 @@ public:
         const auto now=std::chrono::steady_clock::now(); if(std::abs(x-hoverX_)>2 || std::abs(y-hoverY_)>2) { hoverX_=x;hoverY_=y;hoverTime_=now;tooltipPending_=true; }
         setCursor();
     }
-    void mouseUp() {
+    void mouseUp(int button) {
+        if(!navigationMode_.empty()){if(button==navigationButton_)endNavigation();return;}
         if(gameFocus_){gameInput_.button(1,false);gameInput_.button(4,false);}
         requestFrame();
         if(scenePlay_&&scenePressed_!=gm::NoIndex){scenePressed_=gm::NoIndex;ReleaseCapture();return;}
@@ -272,7 +297,7 @@ public:
     void wheel(int delta,float x,float y) {
         if(gameFocus_&&canvasArea_.contains(x,y))gameInput_.wheel(float(delta)/120.f);
         requestFrame();
-        if(canvasArea_.contains(x,y)) {if(!scenePlay_)zoomAt(x,y,delta>0?1.12f:1/1.12f);}
+        if(canvasArea_.contains(x,y)) {if(sceneNavigable()&&scene3D()){if(navigationMode_=="fly")sceneCamera().changeSpeed(float(delta)/120);else sceneCamera().dolly(float(delta)/120);}else if(!scenePlay_)zoomAt(x,y,std::pow(1.12f,float(delta)/120));}
         else if(px(layout_.regions["left-top"]).contains(x,y)) treeScroll_=std::max(0,treeScroll_+(delta>0?-3:3));
         else if(px(layout_.regions["bottom"]).contains(x,y)) {
             const auto bottom=px(layout_.regions["bottom"]);auto& offset=x<bottom.x+std::min(180*scale_,bottom.w*.26f)?folderScroll_:fileScroll_;
@@ -294,13 +319,14 @@ public:
     void key(WPARAM key) {
         requestFrame();
         const bool ctrl=(GetKeyState(VK_CONTROL)&0x8000)!=0,shift=(GetKeyState(VK_SHIFT)&0x8000)!=0;
-        if(key==VK_ESCAPE) {setGameFocus(false);if(edit_) {edit_->buffer=edit_->original;updateSearch();} edit_.reset();dragMode_.clear();ReleaseCapture();return; }
+        if(key==VK_ESCAPE) {endNavigation();setGameFocus(false);if(edit_) {edit_->buffer=edit_->original;updateSearch();} edit_.reset();updateTextInput();dragMode_.clear();ReleaseCapture();return; }
+        if(!navigationMode_.empty())return;
         if(ctrl && key=='S') { if(commit()) command({{"op","save"}});return; }
         if(ctrl && key=='O') { if(commit()) openDialog(false);return; }
         if(ctrl && key=='N') { if(commit()) openDialog(true,sceneMode());return; }
         if(key==VK_F7&&scenePlay_){command({{"op",shift?"preview.step":"preview.pause"}});return;}
         if(scenePlay_&&gameFocus_&&!ctrl&&key!=VK_F8&&key!=VK_F5){if(key=='D'||key==VK_RIGHT)pendingSceneInput_.x=1;if(key=='A'||key==VK_LEFT)pendingSceneInput_.x=-1;if(key=='S'||key==VK_DOWN)pendingSceneInput_.y=1;if(key=='W'||key==VK_UP)pendingSceneInput_.y=-1;return;}
-        if(key==VK_F6) { edit_.reset();command({{"op","recover"}});return; }
+        if(key==VK_F6) { edit_.reset();updateTextInput();command({{"op","recover"}});return; }
         if(edit_) {
             if(key==VK_RETURN) {commit();return;}
             if(key==VK_TAB) {
@@ -346,8 +372,8 @@ public:
         else if(ctrl && key=='Y') command({{"op","redo"}});
         else if(key==VK_DELETE && !assetInspection_ && doc_.selected()!=rootId()) command({{"op","remove"},{"id",doc_.selected()}});
         else if(key==VK_F2 && !assetInspection_) startEdit("name");
-        else if(key=='F') command({{"op","view.fit"}});
-        else if(key=='Q') tool_="select";
+        else if(key=='F'&&!ctrl) command({{"op","view.frame"}});
+        else if(key=='Q') tool_="hand";
         else if(key=='W') tool_="move";
         else if(key==VK_F5) command({{"op",ctrl&&shift?"apply":"preview.run"}});
         else if(key==VK_LEFT || key==VK_RIGHT || key==VK_UP || key==VK_DOWN) {
@@ -365,7 +391,7 @@ public:
         return true;
     }
     void requestFrame() {redraw_=true;}
-    DWORD idleWait() const {return scenePlay_&&!scenePaused_&&GetForegroundWindow()==window_?16:100;}
+    DWORD idleWait() const {return (navigationMode_=="fly"||(scenePlay_&&!scenePaused_))&&GetForegroundWindow()==window_?16:100;}
     void context(float x,float y) {
         mouseX_=x;mouseY_=y;requestFrame();if(!commit()) return;
         for(auto it=hits_.rbegin();it!=hits_.rend();++it) if(it->rect.contains(x,y)) {
@@ -375,21 +401,23 @@ public:
         }
         if(canvasArea_.contains(x,y)) {for(auto it=nodes_.rbegin();it!=nodes_.rend();++it) if(it->rect.contains(x,y)) {command({{"op","select"},{"id",it->id}});break;}showMenu("node");}
     }
-    void captureLost() { dragMode_.clear();gameInput_.cancelButtons(); }
+    void captureLost() { endNavigation();dragMode_.clear();gameInput_.cancelButtons(); }
 private:
     #include "editor_tasks.inl"
     #include "editor_project.inl"
     #include "editor_scene.inl"
+    #include "editor_navigation.inl"
     Json state() { auto response=doc_.execute({{"op","query"}});response["result"]=nullptr;return response; }
     void fail(const std::string& message) { message_=message;error_=true;++errorCount_;logs_.push_back(message);layout_.outputOpen=true;requestFrame(); }
     Json loadShell() { try { auto shell=gm::readJson(root_/"editor/editor.ui.json");gm::validateDocument(shell);return shell;} catch(...) {return Json::parse(kDefaultEditor);} }
     void updateSession() { gm::writeJsonAtomic(session_/"session.json",{{"protocol","gm.editor/1"},{"pid",GetCurrentProcessId()},{"project",pathText(doc_.path())}}); }
     void loadWorkspace() {
         try { auto j=gm::readJson(session_.parent_path()/"workspace.json");layout_.left=j.value("left",228.f);layout_.right=j.value("right",300.f);layout_.treeFraction=j.value("tree",.58f);layout_.outputHeight=j.value("outputHeight",180.f);
+            if(j.contains("sceneCameras")&&j["sceneCameras"].is_object())for(const auto &[key,value]:j["sceneCameras"].items()){try{sceneCameras_[key]=readCamera(value);}catch(...) {}}
             if(!std::isfinite(layout_.left)||!std::isfinite(layout_.right)||!std::isfinite(layout_.treeFraction)||!std::isfinite(layout_.outputHeight)) layout_=gm::WorkspaceLayout{};
         } catch(...) {}
     }
-    void saveWorkspace() { try { gm::writeJsonAtomic(session_.parent_path()/"workspace.json",{{"left",layout_.left},{"right",layout_.right},{"tree",layout_.treeFraction},{"outputHeight",layout_.outputHeight}}); } catch(...) {} }
+    void saveWorkspace() { try {Json cameras=Json::object();for(const auto &[key,camera]:sceneCameras_)cameras[key]=cameraJson(camera);gm::writeJsonAtomic(session_.parent_path()/"workspace.json",{{"left",layout_.left},{"right",layout_.right},{"tree",layout_.treeFraction},{"outputHeight",layout_.outputHeight},{"sceneCameras",cameras}}); } catch(...) {} }
     void poll() {
         std::vector<std::filesystem::path> files;
         for(const auto& f:std::filesystem::directory_iterator(session_/"inbox")) if(f.path().extension()==".json") files.push_back(f.path());
@@ -409,13 +437,14 @@ private:
     }
     void resetView() {
         stopPreview();
-        edit_.reset();collapsed_.clear();treeScroll_=0;inspectorScroll_=0;zoom_=1;panX_=panY_=0;treeSearch_.clear();assetInspection_=false;selectedFile_=doc_.path();
+        edit_.reset();updateTextInput();collapsed_.clear();treeScroll_=0;inspectorScroll_=0;zoom_=1;panX_=panY_=0;treeSearch_.clear();assetInspection_=false;selectedFile_=doc_.path();
         updateSession();requestFrame();
     }
     void switchDocument(const std::filesystem::path& path,bool) {
         doc_.open(path);resetView();refreshFiles();error_=false;message_="已打开 "+pathText(path.filename());logs_.push_back(message_);
     }
     void stopPreview() {
+        endNavigation();
         edit3DView_.reset();edit3D_.reset();edit3DRevision_=UINT64_MAX;edit3DPath_.clear();
         sceneView_.reset();scenePlay_.reset();scenePaused_=false;sceneGameView_=false;setGameFocus(false);pendingSceneInput_={};scenePressed_=gm::NoIndex;
         if(previewProcess_) {if(WaitForSingleObject(previewProcess_,0)==WAIT_TIMEOUT) TerminateProcess(previewProcess_,0);CloseHandle(previewProcess_);previewProcess_=nullptr;}
@@ -494,7 +523,7 @@ private:
             item(L"复制节点\tCtrl+D",{{"op","duplicate"},{"id",doc_.selected()}},!assetInspection_ && doc_.selected()!=rootId());
             item(L"删除节点\tDelete",{{"op","remove"},{"id",doc_.selected()}},!assetInspection_ && doc_.selected()!=rootId());
         } else if(name=="view") {
-            item(L"适应画布\tF",{{"op","view.fit"}});item(grid_?L"隐藏网格":L"显示网格",{{"op","view.grid"}});
+            item(L"聚焦所选\tF",{{"op","view.frame"}});item(L"查看全部",{{"op","view.fit"}});item(grid_?L"隐藏网格":L"显示网格",{{"op","view.grid"}});
             item(L"资源浏览器",{{"op","bottom.tab"},{"name","assets"}});item(L"控制台",{{"op","bottom.tab"},{"name","output"}});separator();item(L"重置面板布局",{{"op","layout.reset"}});
         } else if(name=="tools") {
             item(L"运行当前界面\tF5",{{"op","preview.run"}},rootId()!="editor");separator();
@@ -524,6 +553,7 @@ private:
         if(key=="color") return "#34373D";if(key=="textColor") return "#DFE7F2";
         if(key=="fontSize") return 14;if(key=="visible") return true;if(key=="text"||key=="bindText"||key=="event") return "";if(key=="layout")return "absolute";if(key=="columns")return 1;if(key=="rowHeight")return 28;if(key=="fillX"||key=="fillY")return false;return 0;
     }
+    void updateTextInput(){ImmAssociateContextEx(window_,nullptr,edit_&&!gameFocus_&&navigationMode_.empty()?IACE_DEFAULT:0);}
     void startEdit(const std::string& key) {
         if(projectBusy()&&!key.starts_with("$"))return;
         std::string initial;
@@ -534,7 +564,7 @@ private:
             const auto* node=selectedNode();if(!node) return;
             auto value=node->value(key,defaultValue(*node,key));initial=value.is_string()?value.get<std::string>():value.dump();
         }
-        auto text=gm::wide(initial);edit_=Edit{doc_.selected(),key,text,text,text.size(),0,doc_.revision()};
+        auto text=gm::wide(initial);edit_=Edit{doc_.selected(),key,text,text,text.size(),0,doc_.revision()};updateTextInput();
     }
     void updateSearch() {
         if(!edit_) return;
@@ -543,7 +573,7 @@ private:
     }
     bool commit() {
         if(!edit_) return true;
-        if(edit_->property.front()=='$' || edit_->buffer==edit_->original) {edit_.reset();return true;}
+        if(edit_->property.front()=='$' || edit_->buffer==edit_->original) {edit_.reset();updateTextInput();return true;}
         const auto edit=*edit_;const auto text=gm::utf8(edit.buffer);Json value;
         try {
             if(sceneMode()&&edit.property.rfind('.')!=std::string::npos){auto dot=edit.property.rfind('.');const auto& def=gm::sceneComponent(edit.property.substr(0,dot));bool string=false;for(const auto& f:def.fields)if(f.key==edit.property.substr(dot+1))string=f.initial.is_string();value=string?Json(text):Json::parse(text);}
@@ -551,7 +581,7 @@ private:
             else value=Json::parse(text);
         } catch(...) {fail("请输入有效的数值。");return false;}
         auto response=command({{"op","set"},{"id",edit.node},{"property",edit.property},{"value",value},{"expected_revision",edit.revision}});
-        if(response.value("ok",false)) {edit_.reset();return true;}return false;
+        if(response.value("ok",false)) {edit_.reset();updateTextInput();return true;}return false;
     }
     Rect px(Rect r) const {return {r.x*scale_,r.y*scale_,r.w*scale_,r.h*scale_};}
     uint32_t ink() const {return C("#D3D6DC");} uint32_t muted() const {return C("#9298A2");} uint32_t blue() const {return C("#80ABEB");}
@@ -604,7 +634,7 @@ private:
         for(const auto& [label,name]:std::vector<std::pair<std::string,std::string>>{{"文件","file"},{"编辑","edit"},{"节点","node"},{"视图","view"},{"项目","project"},{"工具","tools"}}) {
             button({x,r.y,48*scale_,r.h},sceneMode()&&name=="node"?"实体":label,{{"op","menu"},{"name",name}});x+=50*scale_;
         }
-        text(r.x+r.w-124*scale_,r.y+8*scale_,"GM ENGINE  0.8",11,muted(),116*scale_);
+        text(r.x+r.w-150*scale_,r.y+8*scale_,"GM ENGINE  " GM_ENGINE_VERSION,11,muted(),142*scale_);
     }
     void inputBox(Rect box,const std::string& key,const std::string& value,const std::string& placeholder="",bool property=true) {
         const bool active=edit_ && edit_->property==key && (!property || edit_->node==doc_.selected());
@@ -759,7 +789,7 @@ private:
         previewScale_=fit*zoom_;previewRect_={canvasArea_.x+(canvasArea_.w-rw*previewScale_)*.5f+panX_,canvasArea_.y+(canvasArea_.h-rh*previewScale_)*.5f+panY_,rw*previewScale_,rh*previewScale_};
         centered({zx+24*scale_,y,48*scale_,h},std::to_string(int(previewScale_/scale_*100))+"%",12);
         button({zx+73*scale_,y,26*scale_,h},"+",{{"op","view.zoom"},{"factor",1.2f}},"放大");
-        button({zx+101*scale_,y,53*scale_,h},"适应",{{"op","view.fit"}},"适应画布  F");
+        button({zx+101*scale_,y,53*scale_,h},"适应",{{"op","view.fit"}},"查看全部");
         renderer_->rect({r.x,r.y+63*scale_,r.w,scale_},C("#111316"));
         renderer_->clip(canvasArea_);
         if(grid_) {
@@ -932,6 +962,9 @@ private:
     }
     HWND window_;gm::EditorDocuments doc_;gm::GameProject gameProject_;std::string inspectorPage_="components";Json shell_;std::filesystem::path session_,root_,selectedFile_,selectedFolder_;HANDLE lock_=INVALID_HANDLE_VALUE,previewProcess_=nullptr;
     std::unique_ptr<gm::Renderer> renderer_;std::unique_ptr<gm::AuthoringImages> images_;std::filesystem::path shellDirectory_;gm::WorkspaceLayout layout_;
+    std::map<std::string,gm::EditorCamera> sceneCameras_;
+    std::string navigationMode_;int navigationButton_=0;bool navigationRaw_=false,navigationHidden_=false,rightNavigation_=false;
+    POINT navigationCursor_{};std::chrono::steady_clock::time_point navigationTick_=std::chrono::steady_clock::now();
     std::unique_ptr<gm::SceneRuntime> edit3D_;std::unique_ptr<gm::SceneView> edit3DView_;uint64_t edit3DRevision_=UINT64_MAX;std::filesystem::path edit3DPath_;
     std::unique_ptr<gm::SceneRuntime> scenePlay_;std::unique_ptr<gm::SceneView> sceneView_;
     bool scenePaused_=false,sceneGameView_=false,gameFocus_=false;uint32_t scenePressed_=gm::NoIndex;
@@ -957,16 +990,20 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wp,LPARAM lp) {
         if(app) switch(message) {
             case WM_SIZE:app->requestFrame();break;
             case WM_PAINT: {PAINTSTRUCT paint;BeginPaint(window,&paint);EndPaint(window,&paint);app->requestFrame();return 0;}
-            case WM_RBUTTONUP:if(!app->gameRight(false))app->context(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
+            case WM_RBUTTONUP:if(!app->rightMouse(false,float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp))))app->context(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
             case WM_LBUTTONDOWN:case WM_LBUTTONDBLCLK: SetFocus(window);app->mouseDown(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)),message==WM_LBUTTONDBLCLK);return 0;
             case WM_MBUTTONDOWN: SetFocus(window);app->mouseDown(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)),false,true);return 0;
-            case WM_RBUTTONDOWN:app->gameRight(true);return 0;
+            case WM_RBUTTONDOWN:SetFocus(window);app->rightMouse(true,float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
+            case WM_INPUT:app->rawMouse(lp);break;
+            case WM_CANCELMODE:app->gameBlur();break;
             case WM_KILLFOCUS:app->gameBlur();break;
             case WM_MOUSEMOVE:app->mouseMove(float(GET_X_LPARAM(lp)),float(GET_Y_LPARAM(lp)));return 0;
-            case WM_LBUTTONUP:case WM_MBUTTONUP:app->mouseUp();return 0;
+            case WM_LBUTTONUP:case WM_MBUTTONUP:app->mouseUp(message==WM_MBUTTONUP?4:1);return 0;
             case WM_CAPTURECHANGED:app->captureLost();return 0;
             case WM_MOUSEWHEEL: {POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(window,&p);app->wheel(GET_WHEEL_DELTA_WPARAM(wp),float(p.x),float(p.y));return 0;}
             case WM_POINTERDOWN:case WM_POINTERUPDATE:case WM_POINTERUP:if(app->gameTouch(wp,message!=WM_POINTERUP,message==WM_POINTERDOWN))return 0;break;
+            case WM_SYSKEYDOWN:if(wp==VK_F4)break;app->key(wp);return 0;
+            case WM_SYSKEYUP:if(wp==VK_MENU)return 0;break;
             case WM_KEYDOWN:app->gameKey(uint32_t(wp),(lp & (1ll<<30))!=0);app->key(wp);return 0;
             case WM_CHAR:app->input(wchar_t(wp));return 0;
             case WM_IME_COMPOSITION:

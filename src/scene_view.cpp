@@ -19,7 +19,7 @@ void SceneView::clear() {
     images_.clear();
     scene_ = nullptr;
 }
-void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud) {
+void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud, const ViewCamera3D *editorCamera) {
     if (scene_ != &scene || imageRevision_ != scene.imageRevision()) {
         std::vector<ImageHandle> uploaded;
         try {
@@ -46,6 +46,13 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud) {
     }
     viewport_ = viewport;
     const auto &asset = scene.asset();
+    if (editorCamera) {
+        // Scene navigation uses the whole viewport, independently of game resolution and HUD.
+        if (world_.begin(asset.rendering, scene.rendering(), viewport, asset.background, editorCamera))
+            world_.finish();
+        renderer_.unclip();
+        return;
+    }
     float scale = std::min(viewport.w / asset.width, viewport.h / asset.height);
     float x = viewport.x + (viewport.w - asset.width * scale) * .5f,
           y = viewport.y + (viewport.h - asset.height * scale) * .5f;

@@ -7,7 +7,7 @@ class SceneView {
   public:
     explicit SceneView(Renderer &renderer) : renderer_(renderer), world_(renderer) {}
     ~SceneView();
-    void render(SceneRuntime &scene, Rect viewport, bool showHud = true);
+    void render(SceneRuntime &scene, Rect viewport, bool showHud = true, const ViewCamera3D *camera = nullptr);
     uint32_t hitUi(const SceneRuntime &scene, float x, float y) const;
     void clear();
 

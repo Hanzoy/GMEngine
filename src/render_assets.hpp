@@ -65,6 +65,11 @@ struct RenderFrame {
     sdk::DirectionalLight light;
     sdk::PostProcess post{0};
 };
+// Optional view-owned camera. Never writes to the game World or copies its mesh list.
+struct ViewCamera3D {
+    Mat4 transform = identity3D();
+    sdk::Camera3D lens;
+};
 uint64_t textureLevelBytes(TextureFormat format, uint32_t width, uint32_t height);
 uint64_t textureBytes(const CookedTexture &texture, TextureFormat format);
 void validateRenderAssets(const RenderAssets &assets);

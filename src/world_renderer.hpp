@@ -8,7 +8,8 @@ class WorldRenderer {
   public:
     explicit WorldRenderer(Renderer &renderer);
     ~WorldRenderer();
-    bool begin(const RenderAssets &assets, const RenderFrame &frame, Rect viewport, uint32_t background);
+    bool begin(const RenderAssets &assets, const RenderFrame &frame, Rect viewport, uint32_t background,
+               const ViewCamera3D *camera = nullptr);
     void finish();
     void clear();
     void instancing(bool enabled);

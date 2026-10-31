@@ -1,4 +1,6 @@
-# GM Engine 0.10.0
+# GM Engine 0.10.1
+
+0.10.1 新增 Unity 常用场景导航操作。打开场景页签，按住右键配合 WASD/QE 飞行；中键平移、Alt+左键环绕、滚轮缩放、F 聚焦。详见 `docs/editor-navigation.md`。
 
 0.10.0 提供通用材质、自定义 Shader、mipmap、BC3 / ASTC / ETC2、HDR 后处理和基础 3D 渲染。参见 `docs/rendering-v010.md`。安装包可包含 `tools/shaderc.exe`；内置材质和发布后的 Player 无需该工具。场景二进制 v3 可读取原 v2，SDK ABI 保持 10。
 

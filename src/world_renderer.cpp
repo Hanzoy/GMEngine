@@ -310,7 +310,7 @@ struct WorldRenderer::Impl {
             targetBytes += uint64_t(bw) * bh * (hdr ? 8 : 4) * 2;
         }
     }
-    void bindMaterial(const CookedMaterial &m, const RenderFrame &frame) {
+    void bindMaterial(const CookedMaterial &m, const RenderFrame &frame, const Mat4 &eye) {
         if (m.shader == UINT32_MAX) {
             vec("u_baseColor", {1, 1, 1, 1});
             vec("u_surface", {0, .6f, 0, 0});
@@ -351,18 +351,21 @@ struct WorldRenderer::Impl {
         for (const auto &p : m.samplers)
             texture(uint8_t(p.stage), p.name.c_str(), textures.at(p.texture));
         const auto &l = frame.light;
-        vec("u_camera", {frame.camera[12], frame.camera[13], frame.camera[14], 1});
+        vec("u_camera", {eye[12], eye[13], eye[14], 1});
         vec("u_lightDirection", {l.directionX, l.directionY, l.directionZ, 0});
         vec("u_lightColor",
             {float(l.color & 255) / 255 * l.intensity, float((l.color >> 8) & 255) / 255 * l.intensity,
              float((l.color >> 16) & 255) / 255 * l.intensity, l.ambient});
     }
-    void draw(const RenderAssets &assets, const RenderFrame &frame, uint16_t view, bool useInstances) {
-        if (!frame.cameraEnabled)
+    void draw(const RenderAssets &assets, const RenderFrame &frame, uint16_t view, bool useInstances,
+              const ViewCamera3D *overrideCamera) {
+        if (!frame.cameraEnabled && !overrideCamera)
             return;
-        auto camera = inverseAffine3D(frame.camera),
-             projection = perspective3D(frame.lens.fieldOfView, float(width) / height, frame.lens.nearPlane,
-                                        frame.lens.farPlane, bgfx::getCaps()->homogeneousDepth);
+        const auto &eye = overrideCamera ? overrideCamera->transform : frame.camera;
+        const auto &lens = overrideCamera ? overrideCamera->lens : frame.lens;
+        auto camera = inverseAffine3D(eye),
+             projection = perspective3D(lens.fieldOfView, float(width) / height, lens.nearPlane,
+                                        lens.farPlane, bgfx::getCaps()->homogeneousDepth);
         auto vp = multiply3D(projection, camera);
         bgfx::setViewTransform(view, camera.data(), projection.data());
         struct Item {
@@ -408,7 +411,7 @@ struct WorldRenderer::Impl {
                     count = 1;
                     end = first + 1;
                 }
-                bindMaterial(m, frame);
+                bindMaterial(m, frame, eye);
                 bgfx::setVertexBuffer(0, meshes.at(d.mesh).vb);
                 bgfx::setIndexBuffer(meshes.at(d.mesh).ib);
                 if (instance) {
@@ -504,8 +507,8 @@ void WorldRenderer::instancing(bool enabled) {
     instancing_ = enabled;
 }
 bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, Rect viewport,
-                          uint32_t background) {
-    if (!frame.cameraEnabled && !frame.post.enabled)
+                          uint32_t background, const ViewCamera3D *camera) {
+    if (!camera && !frame.cameraEnabled && !frame.post.enabled)
         return false;
     if (viewport.w < 1 || viewport.h < 1)
         return false;
@@ -542,7 +545,7 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
     auto palette = renderer_.clearColor(clear);
     bgfx::setViewClear(view, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 1.f, 0, palette);
     bgfx::touch(view);
-    g.draw(assets, frame, view, instancing_);
+    g.draw(assets, frame, view, instancing_, camera);
     renderer_.layer2D(g.target, viewport, g.width, g.height, true);
     auto &s = renderer_.frameStats();
     s.meshBytes += g.meshBytes;
