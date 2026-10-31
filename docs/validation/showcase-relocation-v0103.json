@@ -1,0 +1,16 @@
+[
+  {
+    "packagedPlayer": true,
+    "unicodePath": true,
+    "archiveSha256": "A36EEF2EDED1A6DE55627677A16D219E575FCDA7337431A4264B0ABDC94FD550",
+    "sourceGameplay": true,
+    "project": "AstralEcho"
+  },
+  {
+    "packagedPlayer": true,
+    "unicodePath": true,
+    "archiveSha256": "3DFD2703B23A5F0E73676B514DDFC26232E571C99C854BF2F49C4A9D8A92CF77",
+    "sourceGameplay": true,
+    "project": "LumenSanctum"
+  }
+]

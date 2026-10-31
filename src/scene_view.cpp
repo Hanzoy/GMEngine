@@ -163,6 +163,9 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud, const V
     }
     renderer_.visibility(uint32_t(sprites.size()), visible_.candidates, uint32_t(visible_.rows.size()),
                          uint32_t(visible_.rows.size()), blocks);
+    // Canvas uses design-space screen coordinates, like HUD widgets. Composite it
+    // at native output resolution after scene exposure, bloom and antialiasing.
+    if(worldLayer)world_.finish();
     const Rect canvasBounds = intersect(viewport, {x, y, asset.width * scale, asset.height * scale});
     renderer_.clip(canvasBounds);
     for (const auto &cmd : scene.canvas()) {
@@ -197,7 +200,6 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud, const V
         }
     }
     renderer_.clip(canvasBounds);
-    if(worldLayer)world_.finish();
     if (showHud)
         hudView_.render(renderer_, scene.hud(), viewport.w, viewport.h, viewport.x, viewport.y, false);
     renderer_.unclip();

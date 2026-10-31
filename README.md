@@ -1,6 +1,8 @@
-# GM Engine 0.10.2（开发版）
+# GM Engine 0.10.3（开发版）
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
+
+0.10.3 修复屏幕 Canvas 被 3D 后处理污染的问题，补充原生分辨率 HUD 的 GPU 回归与可重复的场景性能采样。新增独立 2D / 3D 完整游戏示例，清理过期产物，并记录下一阶段的画面与性能改进项。见 [示例开发与引擎反馈](docs/showcase-development-v0103.md)。
 
 0.10.2 重新整理编辑器工作区，采用 SVG 播放控制、统一图标和主题，以及紧凑 XYZ 组件字段。见 [编辑器界面说明](docs/editor-ui-v0102.md)。
 
@@ -20,10 +22,10 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 ## 安装和启动
 
-0.10.2 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
+0.10.3 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.10.2-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.10.2-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.10.3-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.10.3-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
 
@@ -68,6 +70,6 @@ $cli='../GMEngineApp/bin/gmctl.exe'
 
 底层增加固定工作线程池和有界队列，Player 场景读取复用线程，支持取消。ECS System 仍串行；场景解码、World 构建、纹理提交仍在主线程。详见 [后台任务与多线程边界](docs/engine-v08.md)。
 
-当前已验证 Windows / D3D11。Android、iOS、macOS、Web 平台层尚未实现；bgfx 的跨平台能力不等于应用平台层已经完成。
+当前已验证 Windows / D3D11。Android 已有最小 Player 与 APK 构建，尚未真机验收；iOS、macOS、Web 平台层尚未完成。本次两个画面示例只验收 Windows，bgfx 跨平台能力不等于应用平台层已经完成。
 
-详细变更、命令、运行约定、验证和逐模块剩余工作见 [0.8 设计与验收](docs/engine-v08.md)。原生模块的组合方式见 [项目架构说明](docs/project-native-modules-v07.md)，该文中的 ABI 7 为历史版本，当前源码 ABI 为 9。依赖许可见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+详细变更、命令、运行约定、验证和逐模块剩余工作见 [0.8 设计与验收](docs/engine-v08.md)。原生模块的组合方式见 [项目架构说明](docs/project-native-modules-v07.md)，该文中的 ABI 7 为历史版本，当前源码 ABI 为 10。依赖许可见 [THIRD_PARTY.md](THIRD_PARTY.md)。

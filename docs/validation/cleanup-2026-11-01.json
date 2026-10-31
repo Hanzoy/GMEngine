@@ -1,0 +1,422 @@
+{
+  "files": 5745.0,
+  "date": "2026-11-01",
+  "applied": true,
+  "bytes": 939819025.0,
+  "items": [
+    {
+      "action": "removed",
+      "files": 1245,
+      "bytes": 248830163,
+      "path": "D:\\Demo\\GMEngineBuild\\staging"
+    },
+    {
+      "action": "removed",
+      "files": 1575,
+      "bytes": 82457863,
+      "path": "D:\\Demo\\GMEngineBuild\\sessions"
+    },
+    {
+      "action": "removed",
+      "files": 38,
+      "bytes": 164587,
+      "path": "D:\\Demo\\GMEngineBuild\\ui-review"
+    },
+    {
+      "action": "removed",
+      "files": 81,
+      "bytes": 16075400,
+      "path": "D:\\Demo\\GMEngineBuild\\ci-msvc-compat"
+    },
+    {
+      "action": "removed",
+      "files": 578,
+      "bytes": 68596889,
+      "path": "D:\\Demo\\GMEngineBuild\\headless-v010"
+    },
+    {
+      "action": "removed",
+      "files": 59,
+      "bytes": 8676435,
+      "path": "D:\\Demo\\GMEngineBuild\\verify-081"
+    },
+    {
+      "action": "removed",
+      "files": 59,
+      "bytes": 8654846,
+      "path": "D:\\Demo\\GMEngineBuild\\verify-082"
+    },
+    {
+      "action": "removed",
+      "files": 782,
+      "bytes": 82515649,
+      "path": "D:\\Demo\\GMEngineBuild\\archive\\source-tree-build"
+    },
+    {
+      "action": "removed",
+      "files": 90,
+      "bytes": 131866187,
+      "path": "D:\\Demo\\GMEngineBuild\\archive\\source-tree-sessions"
+    },
+    {
+      "action": "removed",
+      "files": 146,
+      "bytes": 11313588,
+      "path": "D:\\Demo\\GMEngineBuild\\sdk-portability-2830c8b6a76a458693778dc35571b345"
+    },
+    {
+      "action": "removed",
+      "files": 128,
+      "bytes": 6983762,
+      "path": "D:\\Demo\\GMEngineBuild\\sdk-portability-7e6017e8676149ed8899d4abbdac595c"
+    },
+    {
+      "action": "removed",
+      "files": 137,
+      "bytes": 8869948,
+      "path": "D:\\Demo\\GMEngineBuild\\sdk-portability-89b873e23cbb41049955d3c19be66c31"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 3928,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\241b271cb9f24ad3825aed99dcf99151"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4217,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\25f45c7b22874116bdbb741a4339e97f"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4204,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\546f23a6a6c34bf7bd559db40db9e199"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4219,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\61a516777f014579b5eacb9b6edfac59"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4218,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\6a7f7582c9ff4fd3bb63845155159a9f"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 3928,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\97c80674b22b468eafffc2d858bd617c"
+    },
+    {
+      "action": "removed",
+      "files": 5,
+      "bytes": 4236,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\987d3725a1f24a719d2fdc49eace949e"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 3928,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\cdf0d81f90944ad58725febfa81b03a8"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4217,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\e9373ea39dfe4e0ca3d166e97747742e"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 3928,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\f368990c98e84be5ba3914a47c340e38"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4204,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\f5a50d4115214752a2e553f32efbd70a"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4217,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\f78c2b0a4aa4448a91614e6ef7a5668b"
+    },
+    {
+      "action": "removed",
+      "files": 4,
+      "bytes": 4204,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\ff0c378353ac46029d3404db9c458079"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 0,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-qa\\renderlab-5adc2de7a3cb432e8f6935afda55e8a2"
+    },
+    {
+      "action": "removed",
+      "files": 67,
+      "bytes": 12878273,
+      "path": "D:\\Demo\\GMEngineGame\\archives\\builds\\CrystalMeadow-v07"
+    },
+    {
+      "action": "removed",
+      "files": 67,
+      "bytes": 12879224,
+      "path": "D:\\Demo\\GMEngineGame\\archives\\legacy\\CrystalMeadow-build-before-move"
+    },
+    {
+      "action": "removed",
+      "files": 271,
+      "bytes": 34353688,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\engine-contracts-v08"
+    },
+    {
+      "action": "removed",
+      "files": 34,
+      "bytes": 15071514,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-3484ffd8938f47e3b3cebf160b598419"
+    },
+    {
+      "action": "removed",
+      "files": 93,
+      "bytes": 15377638,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-8c132e19db0c490db739a05c62508536"
+    },
+    {
+      "action": "removed",
+      "files": 33,
+      "bytes": 15043214,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-c5fc3f30b55c48bdb8a7ef279df80d67"
+    },
+    {
+      "action": "removed",
+      "files": 37,
+      "bytes": 15748626,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-cc1134c534fa4fa596e2bddea42ddc2e"
+    },
+    {
+      "action": "removed",
+      "files": 91,
+      "bytes": 2789547,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-d3427846acf94a3d9aaa72f32b46546a"
+    },
+    {
+      "action": "removed",
+      "files": 10,
+      "bytes": 25186586,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-d7c5390314f4405db994dbb2b6ffcd31"
+    },
+    {
+      "action": "removed",
+      "files": 37,
+      "bytes": 15713810,
+      "path": "D:\\Demo\\GMEngineGame\\.cache\\scene-qa-dc707eab89a942a199e2cb28709fdfa8"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 415,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.10.0-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 6870718,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.10.0-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 10821611,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.10.0-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 415,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.10.1-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 6892538,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.10.1-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 10850868,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.10.1-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 3677901,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.0-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4140350,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.0-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 413,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.1-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 3706239,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.1-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4214036,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.1-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 413,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.2-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 3708374,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.2-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4206504,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.2-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 413,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.4-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 3747304,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.4-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4290175,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.4-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 413,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.5-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 3741299,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.5-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4290179,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.8.5-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 413,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.9.0-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4137251,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.9.0-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 5743515,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.9.0-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 413,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.9.1-SHA256.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4167033,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.9.1-Windows-x64-Setup.exe"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 5802693,
+      "path": "D:\\Demo\\GMEngineBuild\\releases\\GMEngine-0.9.1-Windows-x64.zip"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4670,
+      "path": "D:\\Demo\\GMEngineBuild\\fix-dsp-two.cjs"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 1371,
+      "path": "D:\\Demo\\GMEngineBuild\\fix-dsp.cjs"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4408,
+      "path": "D:\\Demo\\GMEngineBuild\\patch-dsp-engine.cjs"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 2301,
+      "path": "D:\\Demo\\GMEngineBuild\\patch-dsp-remaining.cjs"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 2748,
+      "path": "D:\\Demo\\GMEngineBuild\\navigation-preview.ps1"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 27762,
+      "path": "D:\\Demo\\GMEngineBuild\\ui-review-paused.json"
+    },
+    {
+      "action": "removed",
+      "files": 1,
+      "bytes": 4662784,
+      "path": "D:\\Demo\\GMEngineApp\\bin\\gm_editor.exe.previous-0.10.1"
+    }
+  ]
+}

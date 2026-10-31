@@ -1,0 +1,116 @@
+[
+  {
+    "project": "AstralEcho",
+    "passed": 14,
+    "checks": [
+      "Menu starts without moving enemies",
+      "Audio service opens and loads all four packaged-relative clips",
+      "Master audio bus mute responds to M",
+      "WASD movement through runtime.input",
+      "Enemy pool activates during flight",
+      "Pause freezes movement, elapsed time and health",
+      "Nova charges bounded at zero",
+      "Ultra quality editable through input",
+      "Photo mode hides HUD text",
+      "Zero health enters defeat state",
+      "Restart works in photo mode and resets gameplay",
+      "Final encounter spawns at the end of waves",
+      "Actual projectile hit defeats boss and enters victory",
+      "Restart clears boss and active enemy pool"
+    ],
+    "simulation": {
+      "entities": 35,
+      "queries": 11,
+      "componentBytes": 1536,
+      "pendingCommands": 0,
+      "simulationMs": 0.0582,
+      "collisionMs": 0.0005,
+      "extractionMs": 0.0089,
+      "uiMs": 0.0006000000000000001,
+      "p50Ms": 0.0321,
+      "p95Ms": 0.0866,
+      "sampledFrames": 120,
+      "droppedSeconds": 0.0,
+      "systems": [
+        {
+          "name": "astral.Flight",
+          "milliseconds": 0.043,
+          "maximum": 2.1818,
+          "average": 0.05093356164383562,
+          "calls": 146
+        },
+        {
+          "name": "gm.IntegrateVelocity",
+          "milliseconds": 0.0004,
+          "maximum": 0.0058,
+          "average": 0.000205479452054794,
+          "calls": 146
+        },
+        {
+          "name": "gm.SpriteAnimation",
+          "milliseconds": 0.0004,
+          "maximum": 0.0036,
+          "average": 0.00018219178082191752,
+          "calls": 146
+        }
+      ]
+    }
+  },
+  {
+    "project": "LumenSanctum",
+    "passed": 14,
+    "checks": [
+      "Menu starts in showcase camera",
+      "Audio service opens and loads all four packaged-relative clips",
+      "Walk to first relic and collect it",
+      "Pause freezes camera movement",
+      "Walk to second relic and collect it",
+      "Walk to third relic and collect it",
+      "Approach altar with three relics to win",
+      "Photo-mode restart resets the run",
+      "Restart restores all three relic meshes",
+      "Photo mode removes all HUD drawing",
+      "Ultra enables exactly 900 ECS motes",
+      "Stress mode enables bounded 2400-mote pool",
+      "Performance mode reduces active motes to 100",
+      "Performance mode lowers only world resolution"
+    ],
+    "simulation": {
+      "entities": 3427,
+      "queries": 13,
+      "componentBytes": 193632,
+      "pendingCommands": 0,
+      "simulationMs": 1.0886,
+      "collisionMs": 0.0012,
+      "extractionMs": 0.0138,
+      "uiMs": 0.0007,
+      "p50Ms": 1.0328,
+      "p95Ms": 1.248,
+      "sampledFrames": 120,
+      "droppedSeconds": 0.0,
+      "systems": [
+        {
+          "name": "sanctum.Explore",
+          "milliseconds": 0.1117,
+          "maximum": 2.3829,
+          "average": 0.06928414322250635,
+          "calls": 391
+        },
+        {
+          "name": "gm.IntegrateVelocity",
+          "milliseconds": 0.0006,
+          "maximum": 0.0063,
+          "average": 0.0002780051150895148,
+          "calls": 391
+        },
+        {
+          "name": "gm.SpriteAnimation",
+          "milliseconds": 0.0007,
+          "maximum": 0.0083,
+          "average": 0.0006831202046035811,
+          "calls": 391
+        }
+      ]
+    }
+  }
+]

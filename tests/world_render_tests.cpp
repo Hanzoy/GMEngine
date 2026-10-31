@@ -408,6 +408,22 @@ int main(int argc, char **argv) {
             pixels = snapshot(sceneDraw);
             check(pixel(320, 240, 1) > 245 && pixel(320, 240, 0) < 5,
                   "Scene restore reused stale GPU texture bank");
+            // Inject a screen-space Canvas fixture: its color and glyph edges must
+            // survive HDR exposure, bloom, FXAA and a half-resolution world target.
+            scene.width=640;scene.height=480;scene.hud.nodes[0].bounds.w=640;scene.hud.nodes[0].bounds.h=480;
+            auto canvasPixels=[&](bool post){
+                auto fixture=scene;
+                gm::sdk::PostProcess fx;fx.enabled=post;fx.exposure=4;fx.bloom=1;fx.renderScale=.5f;
+                fixture.entities.push_back({"post",gm::NoIndex,{component(fx)}});
+                runtime.restore(fixture);
+                auto& commands=const_cast<std::vector<gm::sdk::CanvasCommand>&>(runtime.canvas());
+                gm::sdk::CanvasCommand panel;panel.x=20;panel.y=20;panel.w=280;panel.h=80;panel.color=0xff403020;commands.push_back(panel);
+                gm::sdk::CanvasCommand label;label.kind=gm::sdk::CanvasKind::Text;label.x=28;label.y=35;label.w=260;label.size=22;label.color=0xffd0e0f0;std::snprintf(label.text,sizeof label.text,"HUD / Native pixels");commands.push_back(label);
+                return snapshot(sceneDraw);
+            };
+            auto canvasDirect=canvasPixels(false),canvasPost=canvasPixels(true);
+            for(int y=22;y<98;++y)for(int x=22;x<298;++x)for(int channel=0;channel<3;++channel)
+                check(canvasDirect[(y*640+x)*4+channel]==canvasPost[(y*640+x)*4+channel],"Canvas was exposed, bloomed or scaled with the world");
             sceneView.clear();
             gm::writeJsonAtomic(output / "performance.json", {{"vsync", false},
                                                               {"vendorId", bgfx::getCaps()->vendorId},

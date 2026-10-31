@@ -9,6 +9,8 @@
 #include <iostream>
 #include <thread>
 #include <lodepng.h>
+#include <set>
+#include <algorithm>
 namespace {
 struct Capture final : bgfx::CallbackI {
     std::filesystem::path output;std::atomic<int> result=0;
@@ -37,13 +39,33 @@ int main(int argc,char** argv){try{
     if(argc<4||argc>7){std::cerr<<"gm_scene_capture SCENE.gmscene MODULE.dll OUTPUT.png [INPUT.json] [WIDTH HEIGHT]\n";return 2;}
     auto registry=std::make_shared<gm::GameRegistry>();registry->load(argv[2]);gm::useGameRegistry(registry);gm::SceneRuntime scene(gm::loadScene(argv[1]),std::filesystem::path(argv[1]).parent_path());
     scene.tick(1.f/60,{});
-    if(argc>=5&&std::string(argv[4])!="-")for(auto& request:gm::readJson(argv[4])) {auto response=gm::runtimeCommand(scene,request);if(!response.value("ok",false))throw std::runtime_error(response.dump());}
+    gm::Json profile=gm::Json::object();
+    if(argc>=5&&std::string(argv[4])!="-"){
+        auto input=gm::readJson(argv[4]);if(input.is_object())profile=input;
+        const auto setup=input.is_array()?input:input.value("setup",gm::Json::array());
+        for(auto& request:setup){auto response=gm::runtimeCommand(scene,request);if(!response.value("ok",false))throw std::runtime_error(response.dump());}
+    }
+    const int samples=profile.value("samples",0),warmup=profile.value("warmup",60);
+    if(samples<0||samples>10000||warmup<0||warmup>10000)throw std::runtime_error("Invalid benchmark length");
+    gm::SceneInput benchmarkInput;
+    for(auto key:profile.value("keys",gm::Json::array())){int code=key.get<int>();if(code<0||code>255)throw std::runtime_error("Invalid benchmark key");benchmarkInput.pointer.keys[code/32]|=1u<<(code%32);}
     int width=argc==7?std::stoi(argv[5]):int(scene.asset().width),height=argc==7?std::stoi(argv[6]):int(scene.asset().height);if(width<64||height<64||width>4096||height>4096)throw std::runtime_error("Capture dimensions must be 64..4096");
     Capture callback;callback.output=std::filesystem::path(argv[3]);std::filesystem::create_directories(std::filesystem::absolute(callback.output).parent_path());
     auto instance=GetModuleHandleW(nullptr);WNDCLASSW cls{};cls.lpfnWndProc=DefWindowProcW;cls.hInstance=instance;cls.lpszClassName=L"GMSceneCapture";RegisterClassW(&cls);
     HWND window=CreateWindowW(cls.lpszClassName,L"Scene render QA",WS_OVERLAPPEDWINDOW,0,0,width,height,nullptr,nullptr,instance,nullptr);if(!window)throw std::runtime_error("Cannot create render surface");
     {
-        gm::Renderer renderer(window,uint32_t(width),uint32_t(height),&callback);gm::SceneView view(renderer);
+        gm::Renderer renderer(window,uint32_t(width),uint32_t(height),&callback,false);gm::SceneView view(renderer);
+        if(samples){
+            std::vector<double> simulation,frontend,gpu,wall;std::set<uint64_t> gpuFrames;
+            for(int i=0;i<warmup+samples;++i){
+                auto start=std::chrono::steady_clock::now();scene.tick(1.f/60,benchmarkInput);
+                renderer.begin(width,height);view.render(scene,{0,0,float(width),float(height)});renderer.end();
+                if(i>=warmup){simulation.push_back(scene.stats().simulationMs);frontend.push_back(renderer.stats().frontendMs);wall.push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count());
+                    if(renderer.stats().gpuMs>=0&&gpuFrames.insert(renderer.stats().gpuFrame).second)gpu.push_back(renderer.stats().gpuMs);}
+            }
+            auto distribution=[](std::vector<double> values)->gm::Json{if(values.empty())return nullptr;std::sort(values.begin(),values.end());return {{"samples",values.size()},{"p50Ms",values[values.size()/2]},{"p95Ms",values[size_t((values.size()-1)*.95)]},{"maxMs",values.back()}};};
+            gm::writeJsonAtomic(std::filesystem::path(argv[3]).concat(".benchmark.json"),{{"resolution",{width,height}},{"vsync",false},{"fixedDt",1./60},{"warmup",warmup},{"requestedSamples",samples},{"vendorId",bgfx::getCaps()->vendorId},{"deviceId",bgfx::getCaps()->deviceId},{"simulation",distribution(simulation)},{"frontend",distribution(frontend)},{"gpu",distribution(gpu)},{"frameWall",distribution(wall)},{"gpuNote","Delayed unique GPU samples; not paired with CPU frame timings. Hidden surface; not a displayed FPS measurement."},{"stats",gm::renderDiagnostics(renderer.stats())}});
+        }
         for(int i=0;i<5;++i){renderer.begin(width,height);view.render(scene,{0,0,float(width),float(height)});renderer.end();}
         bgfx::requestScreenShot(BGFX_INVALID_HANDLE,"capture");
         for(int i=0;i<120&&!callback.result.load();++i){renderer.begin(width,height);view.render(scene,{0,0,float(width),float(height)});renderer.end();std::this_thread::sleep_for(std::chrono::milliseconds(5));}
