@@ -416,6 +416,7 @@ private:
         doc_.open(path);resetView();refreshFiles();error_=false;message_="已打开 "+pathText(path.filename());logs_.push_back(message_);
     }
     void stopPreview() {
+        edit3DView_.reset();edit3D_.reset();edit3DRevision_=UINT64_MAX;edit3DPath_.clear();
         sceneView_.reset();scenePlay_.reset();scenePaused_=false;sceneGameView_=false;setGameFocus(false);pendingSceneInput_={};scenePressed_=gm::NoIndex;
         if(previewProcess_) {if(WaitForSingleObject(previewProcess_,0)==WAIT_TIMEOUT) TerminateProcess(previewProcess_,0);CloseHandle(previewProcess_);previewProcess_=nullptr;}
     }
