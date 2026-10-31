@@ -1,4 +1,5 @@
 #include "runtime_view.hpp"
+#include "editor_icons.hpp"
 #include <windows.h>
 #include <iostream>
 #include <stdexcept>
@@ -79,6 +80,23 @@ int main(int argc,char** argv) {
             if(renderer.stats().quads>32)throw std::runtime_error("Scrolled list did not virtualize rows");listView.clear(renderer);
             view.clear(renderer);renderer.trimImages(true);renderer.begin(960,600);renderer.end();
             if(renderer.stats().imageTextureBytes||renderer.imageTextureCount())throw std::runtime_error("Unused image pool did not release GPU memory");
+            {
+                gm::EditorIcons icons(renderer);
+                auto drawIcons=[&](uint32_t tint){int n=0;for(int pixels:{18,27,36})for(auto name:gm::editorIconNames()){
+                    icons.draw(name,{float(n%20*44),float(n/20*44),float(pixels),float(pixels)},tint);++n;
+                }};
+                renderer.begin(960,600);drawIcons(0xffffffff);renderer.end();
+                if(!renderer.stats().imageUploads)throw std::runtime_error("SVG icons were not uploaded");
+                const auto textures=renderer.imageTextureCount();
+                for(uint32_t tint:{0xff82b4fa,0xff667080,0xff98dbb1}){
+                    renderer.begin(960,600);drawIcons(tint);renderer.end();
+                    if(renderer.stats().imageUploads||renderer.imageTextureCount()!=textures)throw std::runtime_error("Icon tint/state reuploaded or leaked textures");
+                    if(renderer.stats().drawCalls>2)throw std::runtime_error("Editor icons did not share an atlas batch");
+                }
+                icons.clear();renderer.trimImages(true);renderer.begin(960,600);renderer.end();
+                if(renderer.imageTextureCount()||renderer.stats().imageTextureBytes)throw std::runtime_error("Editor icon cache leaked GPU images");
+            }
+            std::cout<<"PASS: SVGs at 100/150/200% DPI share atlas; state changes upload zero images; cache releases GPU memory\n";
             std::cout<<"PASS: shared textures, unchanged reload, stable UI buffers, resize invalidation, pool reclamation\n";
             std::cout<<"PASS: dynamic mixed labels reuse textures; unique text churn evicts within budget\n";
             std::cout<<"PASS: 2 unique image uploads, no uploads/layout rebuilds for 7 image actions, no texture leaks across 3 reloads\n";

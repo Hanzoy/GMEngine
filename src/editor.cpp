@@ -7,6 +7,8 @@
 #include "authoring_images.hpp"
 #include "editor_layout.hpp"
 #include "editor_camera.hpp"
+#include "editor_icons.hpp"
+#include "editor_theme.hpp"
 #include "editor_default.hpp"
 #include "scene_compiler.hpp"
 #include "scene_view.hpp"
@@ -32,6 +34,7 @@
 using gm::Json;
 using gm::Rect;
 namespace {
+namespace T=gm::editorTheme;
 uint32_t C(const char* hex) { return gm::color(hex); }
 struct Hit { Rect rect; Json command; std::string tooltip; bool enabled=true; };
 struct Field { Rect rect; std::string property; };
@@ -68,6 +71,7 @@ public:
         RECT client; GetClientRect(window_,&client);
         renderer_=std::make_unique<gm::Renderer>(window_,client.right,client.bottom);
         images_=std::make_unique<gm::AuthoringImages>(*renderer_);
+        icons_=std::make_unique<gm::EditorIcons>(*renderer_);
         if(sceneMode()){for(const auto& e:doc_.data()["entities"])if(gm::findComponent(e,"Velocity")){doc_.execute({{"op","select"},{"id",e["id"]}});break;}selectedFolder_=doc_.path().parent_path();groups_.insert("Velocity");}
         else if(gm::findNode(doc_.data()["root"],"button")) doc_.execute({{"op","select"},{"id","button"}});
         updateTextInput();
@@ -76,7 +80,7 @@ public:
     ~Editor() {
         if(projectBusy()){projectTask_.cancel();pollProjectTask(true);}
         stopPreview();
-        saveWorkspace(); edit3DView_.reset();edit3D_.reset(); images_.reset(); renderer_.reset(); std::error_code ec;
+        saveWorkspace(); edit3DView_.reset();edit3D_.reset(); icons_.reset();images_.reset(); renderer_.reset(); std::error_code ec;
         std::filesystem::remove(session_/"session.json",ec);
         if(lock_!=INVALID_HANDLE_VALUE) CloseHandle(lock_);
     }
@@ -276,7 +280,7 @@ public:
         else if(dragMode_=="left") layout_.left=x/scale_;
         else if(dragMode_=="right") layout_.right=width_-x/scale_;
         else if(dragMode_=="tree") layout_.treeFraction=(y/scale_-62)/(height_-84);
-        else if(dragMode_=="output") layout_.outputHeight=height_-22-y/scale_;
+        else if(dragMode_=="output") layout_.outputHeight=height_-24-y/scale_;
         const auto now=std::chrono::steady_clock::now(); if(std::abs(x-hoverX_)>2 || std::abs(y-hoverY_)>2) { hoverX_=x;hoverY_=y;hoverTime_=now;tooltipPending_=true; }
         setCursor();
     }
@@ -405,6 +409,7 @@ public:
 private:
     #include "editor_tasks.inl"
     #include "editor_project.inl"
+    #include "editor_widgets.inl"
     #include "editor_scene.inl"
     #include "editor_navigation.inl"
     Json state() { auto response=doc_.execute({{"op","query"}});response["result"]=nullptr;return response; }
@@ -412,7 +417,7 @@ private:
     Json loadShell() { try { auto shell=gm::readJson(root_/"editor/editor.ui.json");gm::validateDocument(shell);return shell;} catch(...) {return Json::parse(kDefaultEditor);} }
     void updateSession() { gm::writeJsonAtomic(session_/"session.json",{{"protocol","gm.editor/1"},{"pid",GetCurrentProcessId()},{"project",pathText(doc_.path())}}); }
     void loadWorkspace() {
-        try { auto j=gm::readJson(session_.parent_path()/"workspace.json");layout_.left=j.value("left",228.f);layout_.right=j.value("right",300.f);layout_.treeFraction=j.value("tree",.58f);layout_.outputHeight=j.value("outputHeight",180.f);
+        try { auto j=gm::readJson(session_.parent_path()/"workspace.json");layout_.left=j.value("left",244.f);layout_.right=j.value("right",336.f);layout_.treeFraction=j.value("tree",.58f);layout_.outputHeight=j.value("outputHeight",192.f);
             if(j.contains("sceneCameras")&&j["sceneCameras"].is_object())for(const auto &[key,value]:j["sceneCameras"].items()){try{sceneCameras_[key]=readCamera(value);}catch(...) {}}
             if(!std::isfinite(layout_.left)||!std::isfinite(layout_.right)||!std::isfinite(layout_.treeFraction)||!std::isfinite(layout_.outputHeight)) layout_=gm::WorkspaceLayout{};
         } catch(...) {}
@@ -584,7 +589,7 @@ private:
         if(response.value("ok",false)) {edit_.reset();updateTextInput();return true;}return false;
     }
     Rect px(Rect r) const {return {r.x*scale_,r.y*scale_,r.w*scale_,r.h*scale_};}
-    uint32_t ink() const {return C("#D3D6DC");} uint32_t muted() const {return C("#9298A2");} uint32_t blue() const {return C("#80ABEB");}
+    uint32_t ink() const {return T::text;} uint32_t muted() const {return T::muted;} uint32_t blue() const {return T::accent;}
     void text(float x,float y,const std::string& value,float size=13,uint32_t color=0,float limit=10000) {
         renderer_->text(x,y,value,size*scale_,color?color:ink(),limit);
     }
@@ -594,13 +599,13 @@ private:
     }
     void button(Rect r,const std::string& label,Json cmd,const std::string& tooltip="",bool active=false,bool enabled=true) {
         enabled=enabled&&(!projectBusy()||allowedDuringProjectTask(cmd.value("op",std::string())));
-        if(active || (enabled && r.contains(mouseX_,mouseY_))) renderer_->rect(r,active?C("#344963"):C("#373A40"));
-        centered(r,label,13,enabled?(active?C("#DDEBFF"):ink()):C("#646A73"));
+        if(active || (enabled && r.contains(mouseX_,mouseY_))) renderer_->rect(r,active?T::selection:T::hover);
+        centered(r,label,13,enabled?(active?T::text:ink()):T::disabled);
         hits_.push_back({r,std::move(cmd),tooltip,enabled});
     }
     void titleBar(Rect r,const std::string& title) {
-        renderer_->rect({r.x,r.y,r.w,29*scale_},C("#2B2D32"));
-        renderer_->rect({r.x,r.y+28*scale_,r.w,scale_},C("#191B1E"));
+        renderer_->rect({r.x,r.y,r.w,29*scale_},T::header);
+        renderer_->rect({r.x,r.y+28*scale_,r.w,scale_},T::divider);
         text(r.x+12*scale_,r.y+6*scale_,title,13,ink(),r.w-60*scale_);
     }
     void drawDocument(const Json& root,float x,float y,float scale,bool preview,Rect clip) {
@@ -614,7 +619,7 @@ private:
             if(kind=="image") {images_->draw(node,r,unit,preview?doc_.path().parent_path():shellDirectory_);return;}
             if(preview) {
                 const auto label=node.value("text",kindName(kind));
-                renderer_->border(r,C("#41454C"));
+                renderer_->border(r,T::border);
                 renderer_->text(r.x+8*unit,r.y+6*unit,label,13*unit,C("#BCC3CE"),r.w-16*unit);
                 return;
             }
@@ -631,29 +636,32 @@ private:
     }
     void drawMenu(Rect r) {
         float x=r.x+46*scale_;
+        renderer_->rect(r,T::field);
         for(const auto& [label,name]:std::vector<std::pair<std::string,std::string>>{{"文件","file"},{"编辑","edit"},{"节点","node"},{"视图","view"},{"项目","project"},{"工具","tools"}}) {
             button({x,r.y,48*scale_,r.h},sceneMode()&&name=="node"?"实体":label,{{"op","menu"},{"name",name}});x+=50*scale_;
         }
-        text(r.x+r.w-150*scale_,r.y+8*scale_,"GM ENGINE  " GM_ENGINE_VERSION,11,muted(),142*scale_);
+        text(r.x+r.w-150*scale_,r.y+8*scale_,"GM Engine  " GM_ENGINE_VERSION,11,muted(),142*scale_);
     }
     void inputBox(Rect box,const std::string& key,const std::string& value,const std::string& placeholder="",bool property=true) {
         const bool active=edit_ && edit_->property==key && (!property || edit_->node==doc_.selected());
-        renderer_->rect(box,C("#1D1F23"));renderer_->border(box,active?C("#6B95D2"):C("#3A3D43"));
+        renderer_->rect(box,T::field);renderer_->border(box,active?T::accent:T::border,active?2*scale_:scale_);
         std::string visible=active?gm::utf8(edit_->buffer):value;
+        const float inset=(key.starts_with("$")?28.f:7.f)*scale_;
         float offset=0;
         if(active) {
             const float caret=renderer_->textWidth(gm::utf8(edit_->buffer.substr(0,edit_->cursor)),13*scale_);
-            offset=std::max(0.f,caret-(box.w-18*scale_));
+            offset=std::max(0.f,caret-(box.w-inset-11*scale_));
             const auto a=std::min(edit_->cursor,edit_->anchor),b=std::max(edit_->cursor,edit_->anchor);
             const auto left=renderer_->textWidth(gm::utf8(edit_->buffer.substr(0,a)),13*scale_),right=renderer_->textWidth(gm::utf8(edit_->buffer.substr(0,b)),13*scale_);
-            float sx=box.x+7*scale_+std::max(0.f,left-offset),ex=std::min(box.x+box.w-6*scale_,box.x+7*scale_+right-offset);
-            if(ex>sx) renderer_->rect({sx,box.y+3*scale_,ex-sx,box.h-6*scale_},C("#3E587B"));
-            renderer_->rect({box.x+7*scale_+caret-offset,box.y+5*scale_,scale_,box.h-10*scale_},ink());
+            float sx=box.x+inset+std::max(0.f,left-offset),ex=std::min(box.x+box.w-6*scale_,box.x+inset+right-offset);
+            if(ex>sx) renderer_->rect({sx,box.y+3*scale_,ex-sx,box.h-6*scale_},T::selection);
+            renderer_->rect({box.x+inset+caret-offset,box.y+5*scale_,scale_,box.h-10*scale_},ink());
         }
         bool empty=visible.empty() && !active;
         // Render only the visible suffix; atlas sampling still clips the right edge.
         if(active && offset>0) {size_t i=0;while(i<edit_->buffer.size() && renderer_->textWidth(gm::utf8(edit_->buffer.substr(0,i)),13*scale_)<offset) ++i;visible=gm::utf8(edit_->buffer.substr(i));}
-        text(box.x+7*scale_,box.y+4*scale_,empty?placeholder:visible,13,empty?C("#797F88"):ink(),box.w-12*scale_);
+        text(box.x+inset,box.y+4*scale_,empty?placeholder:visible,13,empty?T::muted:ink(),box.w-inset-6*scale_);
+        if(key.starts_with("$"))icon({box.x+4*scale_,box.y,20*scale_,box.h},"search",T::muted,15);
 
         fields_.push_back({box,key});
     }
@@ -670,7 +678,7 @@ private:
     void drawTree(Rect r,const std::string& title) {
         if(sceneMode()){drawSceneTree(r);return;}
         titleBar(r,title);
-        button({r.x+r.w-30*scale_,r.y+2*scale_,26*scale_,24*scale_},"+",{{"op","menu"},{"name","create"}},"添加节点");
+        iconButton({r.x+r.w-30*scale_,r.y+2*scale_,26*scale_,24*scale_},"plus",{{"op","menu"},{"name","create"}},"添加节点");
         inputBox({r.x+8*scale_,r.y+36*scale_,r.w-16*scale_,25*scale_},"$tree",treeSearch_,"筛选节点…",false);
         std::vector<std::pair<const Json*,int>> rows;treeRows(doc_.data()["root"],0,rows);
         const auto list=Rect{r.x,r.y+69*scale_,r.w,r.h-73*scale_};int visible=std::max(1,int(list.h/(26*scale_)));
@@ -678,14 +686,14 @@ private:
         renderer_->clip(list);
         for(int i=0;i<visible && i+treeScroll_<int(rows.size());++i) {
             const auto [node,depth]=rows[i+treeScroll_];const auto id=node->at("id").get<std::string>();Rect row{list.x,list.y+i*26*scale_,list.w,26*scale_};
-            const bool selected=id==doc_.selected();if(selected) renderer_->rect(row,C("#354E70"));else if(row.contains(mouseX_,mouseY_)) renderer_->rect(row,C("#30343B"));
+            const bool selected=id==doc_.selected();if(selected) renderer_->rect(row,T::selection);else if(row.contains(mouseX_,mouseY_)) renderer_->rect(row,T::hover);
             hits_.push_back({row,{{"op","select"},{"id",id}},"",true});
             const float indent=10*scale_+depth*16*scale_;
             if(node->contains("children") && !node->at("children").empty()) {
-                button({row.x+indent,row.y,20*scale_,row.h},collapsed_.count(id)?"+":"−",{{"op","tree.toggle"},{"id",id}},"折叠 / 展开");
+                iconButton({row.x+indent,row.y,20*scale_,row.h},collapsed_.count(id)?"chevron-right":"chevron-down",{{"op","tree.toggle"},{"id",id}},"折叠 / 展开");
             }
             auto kind=node->at("type").get<std::string>();uint32_t color=kind=="button"?C("#9FB5DD"):kind=="label"?C("#B4CC9B"):C("#91B8BA");
-            renderer_->border({row.x+indent+21*scale_,row.y+8*scale_,10*scale_,10*scale_},color);
+            icon({row.x+indent+20*scale_,row.y,20*scale_,row.h},kind=="image"?"image":kind=="label"?"file":"layout",color,15);
             text(row.x+indent+39*scale_,row.y+5*scale_,nameOf(*node),13,node->value("visible",true)?ink():muted(),row.w-indent-46*scale_);
         }
         scrollbar(list,int(rows.size()),visible,treeScroll_);renderer_->clip(r);
@@ -708,25 +716,25 @@ private:
     void refreshFiles() {files_.clear();scan(contentRoot()/"assets",0);scan(root_/"editor",0);if(selectedFolder_.empty()) selectedFolder_=contentRoot()/"assets";}
     void drawFiles(Rect r,const std::string&) {
         titleBar(r,"");
-        button({r.x+5*scale_,r.y+2*scale_,60*scale_,25*scale_},"资源",{{"op","bottom.tab"},{"name","assets"}},"项目中的 UI 与图片",!layout_.outputOpen);
-        button({r.x+69*scale_,r.y+2*scale_,60*scale_,25*scale_},"控制台",{{"op","bottom.tab"},{"name","output"}},"编译与编辑消息",layout_.outputOpen);
+        tabButton({r.x+4*scale_,r.y,72*scale_,30*scale_},"资源",{{"op","bottom.tab"},{"name","assets"}},!layout_.outputOpen);
+        tabButton({r.x+78*scale_,r.y,80*scale_,30*scale_},"控制台",{{"op","bottom.tab"},{"name","output"}},layout_.outputOpen);
         if(layout_.outputOpen) {
             button({r.x+r.w-60*scale_,r.y+2*scale_,52*scale_,24*scale_},"清空",{{"op","output.clear"}});
             int visible=std::max(0,int((r.h-40*scale_)/(24*scale_))),begin=std::max(0,int(logs_.size())-visible);
             for(int i=begin;i<int(logs_.size());++i) text(r.x+13*scale_,r.y+(38+(i-begin)*24)*scale_,logs_[i],12,muted(),r.w-26*scale_);
             return;
         }
-        button({r.x+r.w-60*scale_,r.y+2*scale_,52*scale_,24*scale_},"刷新",{{"op","files.refresh"}},"重新读取图片与资源列表");
+        iconButton({r.x+r.w-36*scale_,r.y+2*scale_,28*scale_,26*scale_},"refresh",{{"op","files.refresh"}},"重新读取图片与资源列表");
         const float side=std::min(180*scale_,r.w*.26f);
-        Rect folders{r.x,r.y+30*scale_,side,r.h-30*scale_};renderer_->rect(folders,C("#222429"));renderer_->clip(folders);
+        Rect folders{r.x,r.y+30*scale_,side,r.h-30*scale_};renderer_->rect(folders,T::field);renderer_->clip(folders);
         float y=folders.y+6*scale_;
         const int folderCount=int(std::count_if(files_.begin(),files_.end(),[](const auto& file){return file.folder;}));
         const int folderRows=std::max(1,int((folders.h-6*scale_)/(25*scale_)));folderScroll_=std::clamp(folderScroll_,0,std::max(0,folderCount-folderRows));int folderIndex=0;
         for(const auto& file:files_) if(file.folder) {
             if(folderIndex++<folderScroll_) continue;
             Rect row{folders.x,y,folders.w,25*scale_};if(row.y+row.h>r.y+r.h) break;
-            if(file.path==selectedFolder_) renderer_->rect(row,C("#35445A"));
-            float indent=(12+file.depth*13)*scale_;renderer_->rect({row.x+indent,row.y+9*scale_,11*scale_,8*scale_},C("#B3A680"));
+            if(file.path==selectedFolder_) renderer_->rect(row,T::selection);
+            float indent=(12+file.depth*13)*scale_;icon({row.x+indent-3*scale_,row.y,20*scale_,row.h},file.path==selectedFolder_?"folder-open":"folder",T::muted,16);
             text(row.x+indent+18*scale_,row.y+4*scale_,file.label,12,ink(),row.w-indent-22*scale_);
             hits_.push_back({row,{{"op","files.folder"},{"path",pathText(file.path)}},pathText(file.path),true});y+=25*scale_;
         }
@@ -741,10 +749,10 @@ private:
         fileScroll_=std::clamp(fileScroll_,0,std::max(0,(int(filtered.size())+columns-1)/columns-rows));
         for(int n=0;n<columns*rows && n+fileScroll_*columns<int(filtered.size());++n) {
             const auto* file=filtered[n+fileScroll_*columns];Rect tile{list.x+(n%columns)*130*scale_,list.y+(n/columns)*110*scale_,122*scale_,104*scale_};
-            if(selectedFile_==file->path) renderer_->rect(tile,C("#34465D"));else if(tile.contains(mouseX_,mouseY_)) renderer_->rect(tile,C("#30343B"));
-            Rect thumb{tile.x+12*scale_,tile.y+5*scale_,98*scale_,66*scale_};renderer_->rect(thumb,C("#1B1E23"));
+            if(selectedFile_==file->path) renderer_->rect(tile,T::selection);else if(tile.contains(mouseX_,mouseY_)) renderer_->rect(tile,T::hover);
+            Rect thumb{tile.x+12*scale_,tile.y+5*scale_,98*scale_,66*scale_};renderer_->rect(thumb,T::field);
             if(isImage(file->path)) images_->draw({{"source",pathText(file->path)},{"fit","contain"}},thumb,scale_,root_);
-            else {renderer_->border({thumb.x+32*scale_,thumb.y+8*scale_,34*scale_,47*scale_},C("#8CA6CC"));centered(thumb,file->label.ends_with(".scene.json")?"SCENE":"UI",13,C("#B0C5E1"));}
+            else {icon(thumb,file->label.ends_with(".scene.json")?"scene":"layout",T::accent,34);}
             text(tile.x+5*scale_,tile.y+76*scale_,file->label,12,ink(),tile.w-10*scale_);
             hits_.push_back({tile,{{"op","files.select"},{"path",pathText(file->path)}},isImage(file->path)?"选择预览 · 右键使用图片":"双击打开 "+file->label,true});
         }
@@ -762,35 +770,36 @@ private:
         zoom_=next;
     }
     void drawViewport(Rect r) {
-        renderer_->rect({r.x,r.y,r.w,30*scale_},C("#24262A"));
+        renderer_->rect({r.x,r.y,r.w,30*scale_},T::header);
         const size_t capacity=std::max<size_t>(1,size_t((r.w-54*scale_)/(160*scale_)));
         const size_t first=doc_.active()>=capacity?doc_.active()-capacity+1:0;
         const float tabW=std::min(190*scale_,(r.w-54*scale_)/float(std::min(capacity,doc_.tabs().size())));
         for(size_t i=first;i<doc_.tabs().size() && i<first+capacity;++i) {
             Rect tab{r.x+float(i-first)*tabW,r.y,tabW,30*scale_};
             const auto& doc=*doc_.tabs()[i];const bool active=i==doc_.active();
-            if(active) {renderer_->rect(tab,C("#30333A"));renderer_->rect({tab.x,tab.y,tab.w,2*scale_},C("#799BC9"));}
-            text(tab.x+10*scale_,tab.y+7*scale_,pathText(doc.path().filename())+(doc.dirty()?" *":""),12,active?ink():muted(),tab.w-36*scale_);
+            if(active) {renderer_->rect(tab,T::panel);renderer_->rect({tab.x,tab.y,tab.w,2*scale_},T::accent);}
+            icon({tab.x+8*scale_,tab.y+5*scale_,20*scale_,20*scale_},gm::isScene(doc.data())?"scene":"layout",active?T::accent:T::muted,15);
+            text(tab.x+34*scale_,tab.y+7*scale_,pathText(doc.path().filename())+(doc.dirty()?" *":""),12,active?ink():muted(),tab.w-64*scale_);
             hits_.push_back({tab,{{"op","tab.select"},{"index",i}},pathText(doc.path()),true});
-            if(active && doc_.tabs().size()>1) button({tab.x+tab.w-25*scale_,tab.y+3*scale_,22*scale_,24*scale_},"×",{{"op","tab.close"},{"interactive",true}},"关闭标签  Ctrl+W");
+            if(active && doc_.tabs().size()>1) iconButton({tab.x+tab.w-27*scale_,tab.y+3*scale_,24*scale_,24*scale_},"close",{{"op","tab.close"},{"interactive",true}},"关闭标签  Ctrl+W");
         }
         if(doc_.tabs().size()>capacity) button({r.x+r.w-51*scale_,r.y+3*scale_,48*scale_,24*scale_},"切换",{{"op","tab.select"},{"index",(doc_.active()+1)%doc_.tabs().size()}},"下一个标签  Ctrl+Tab");
 
         if(sceneMode()){drawSceneViewport(r);return;}
         const float y=r.y+33*scale_,h=26*scale_;
-        button({r.x+8*scale_,y,51*scale_,h},"选择",{{"op","view.tool"},{"tool","select"}},"选择节点  Q",tool_=="select");
-        button({r.x+62*scale_,y,51*scale_,h},"移动",{{"op","view.tool"},{"tool","move"}},"移动节点  W",tool_=="move");
-        button({r.x+114*scale_,y,40*scale_,h},"网格",{{"op","view.grid"}},"显示 / 隐藏网格",grid_);
+        iconButton({r.x+8*scale_,y,28*scale_,h},"select",{{"op","view.tool"},{"tool","select"}},"选择节点  Q",tool_=="select");
+        iconButton({r.x+40*scale_,y,28*scale_,h},"move",{{"op","view.tool"},{"tool","move"}},"移动节点  W",tool_=="move");
+        iconButton({r.x+72*scale_,y,28*scale_,h},"grid",{{"op","view.grid"}},"显示 / 隐藏网格",grid_);
         float zx=r.x+r.w-158*scale_;
-        button({zx,y,26*scale_,h},"−",{{"op","view.zoom"},{"factor",1/1.2f}},"缩小");
+        iconButton({zx,y,26*scale_,h},"minus",{{"op","view.zoom"},{"factor",1/1.2f}},"缩小");
         const float rw=doc_.data()["root"]["w"].get<float>(),rh=doc_.data()["root"]["h"].get<float>();
         canvasArea_={r.x+20*scale_,r.y+82*scale_,r.w-20*scale_,r.h-104*scale_};
         const float fit=std::max(.01f,std::min((canvasArea_.w-90*scale_)/rw,(canvasArea_.h-90*scale_)/rh));
         previewScale_=fit*zoom_;previewRect_={canvasArea_.x+(canvasArea_.w-rw*previewScale_)*.5f+panX_,canvasArea_.y+(canvasArea_.h-rh*previewScale_)*.5f+panY_,rw*previewScale_,rh*previewScale_};
         centered({zx+24*scale_,y,48*scale_,h},std::to_string(int(previewScale_/scale_*100))+"%",12);
-        button({zx+73*scale_,y,26*scale_,h},"+",{{"op","view.zoom"},{"factor",1.2f}},"放大");
-        button({zx+101*scale_,y,53*scale_,h},"适应",{{"op","view.fit"}},"查看全部");
-        renderer_->rect({r.x,r.y+63*scale_,r.w,scale_},C("#111316"));
+        iconButton({zx+73*scale_,y,26*scale_,h},"plus",{{"op","view.zoom"},{"factor",1.2f}},"放大");
+        iconButton({zx+116*scale_,y,28*scale_,h},"frame",{{"op","view.fit"}},"查看全部");
+        renderer_->rect({r.x,r.y+63*scale_,r.w,scale_},T::divider);
         renderer_->clip(canvasArea_);
         if(grid_) {
             float step=32*previewScale_;while(step<14*scale_) step*=2;
@@ -810,8 +819,8 @@ private:
                 renderer_->rect({x-3*scale_,sy-3*scale_,6*scale_,6*scale_},C("#CADBF5"));renderer_->border({x-3*scale_,sy-3*scale_,6*scale_,6*scale_},C("#608BC3"));
             }
         }
-        renderer_->clip(r);renderer_->rect({r.x+20*scale_,r.y+64*scale_,r.w-20*scale_,18*scale_},C("#24262A"));
-        renderer_->rect({r.x,r.y+64*scale_,20*scale_,r.h-86*scale_},C("#24262A"));
+        renderer_->clip(r);renderer_->rect({r.x+20*scale_,r.y+64*scale_,r.w-20*scale_,18*scale_},T::header);
+        renderer_->rect({r.x,r.y+64*scale_,20*scale_,r.h-86*scale_},T::header);
         const float tick=100*previewScale_;
         if(tick>22*scale_) for(int i=0;i<=int(rw/100);++i) {
             float x=previewRect_.x+i*tick;if(x>r.x+22*scale_ && x<r.x+r.w-30*scale_) {
@@ -821,7 +830,7 @@ private:
         if(tick>22*scale_) for(int i=0;i<=int(rh/100);++i) {
             float sy=previewRect_.y+i*tick;if(sy>r.y+84*scale_ && sy<r.y+r.h-25*scale_) renderer_->rect({r.x+14*scale_,sy,6*scale_,1},C("#626873"));
         }
-        renderer_->rect({r.x,r.y+r.h-22*scale_,r.w,22*scale_},C("#24262A"));
+        renderer_->rect({r.x,r.y+r.h-22*scale_,r.w,22*scale_},T::header);
         text(r.x+12*scale_,r.y+r.h-18*scale_,std::to_string(int(rw))+" × "+std::to_string(int(rh)),11,muted());
         const auto* selected=selectedNode();
         if(selected) text(r.x+r.w-230*scale_,r.y+r.h-18*scale_,nameOf(*selected)+"   "+std::to_string(int((*selected)["w"].get<float>()))+" × "+std::to_string(int((*selected)["h"].get<float>())),11,muted(),218*scale_);
@@ -836,7 +845,7 @@ private:
         inputBox({r.x+labelWidth*scale_,r.y,r.w-labelWidth*scale_,25*scale_},key,displayValue(node.value(key,defaultValue(node,key))));
     }
     bool group(Rect r,const std::string& name) {
-        renderer_->rect(r,C("#2D3035"));text(r.x+8*scale_,r.y+5*scale_,(groups_.count(name)?"▸  ":"▾  ")+name,12,ink(),r.w-16*scale_);
+        renderer_->rect(r,T::raised);icon({r.x+4*scale_,r.y,22*scale_,r.h},groups_.count(name)?"chevron-right":"chevron-down",T::muted,14);text(r.x+30*scale_,r.y+5*scale_,name,12,ink(),r.w-38*scale_);
         hits_.push_back({r,{{"op","group.toggle"},{"name",name}},"",true});return !groups_.count(name);
     }
     void colorProperty(Rect r,const Json& node,const std::string& key,const std::string& label) {
@@ -850,7 +859,7 @@ private:
         titleBar(r,"资源检查器");Rect body{r.x+14*scale_,r.y+42*scale_,r.w-28*scale_,r.h-54*scale_};
         text(body.x,body.y,pathText(selectedFile_.filename()),15,ink(),body.w);
         if(isImage(selectedFile_)) {
-            Rect preview{body.x,body.y+34*scale_,body.w,160*scale_};renderer_->rect(preview,C("#1A1D22"));
+            Rect preview{body.x,body.y+34*scale_,body.w,160*scale_};renderer_->rect(preview,T::field);
             images_->draw({{"source",pathText(selectedFile_)},{"fit","contain"}},preview,scale_,root_);
             text(body.x,body.y+208*scale_,images_->description(selectedFile_),12,muted(),body.w);
             button({body.x,body.y+247*scale_,body.w,30*scale_},"+ 添加到画布",{{"op","asset.add"}},"创建图片节点并引用此素材",true);
@@ -873,13 +882,11 @@ private:
         Rect body{r.x+12*scale_,r.y+40*scale_,r.w-24*scale_,r.h-48*scale_};
         inspectorScroll_=std::clamp(inspectorScroll_,0.f,std::max(0.f,520.f-body.h/scale_));renderer_->clip(body);
         float y=body.y-inspectorScroll_*scale_;
-        renderer_->border({body.x,y+3*scale_,17*scale_,17*scale_},C("#9BB5D7"));
+        icon({body.x,y,20*scale_,24*scale_},type=="image"?"image":"layout",T::accent,18);
         text(body.x+28*scale_,y,kindName(type),16,ink(),body.w-34*scale_);y+=37*scale_;
         property({body.x,y,body.w,25*scale_},*node,"name","名称");y+=36*scale_;
         text(body.x,y+3*scale_,"可见",12,muted(),65*scale_);Rect check{body.x+76*scale_,y+2*scale_,16*scale_,16*scale_};
-        renderer_->rect(check,node->value("visible",true)?C("#537AAE"):C("#1D1F23"));renderer_->border(check,C("#727B88"));
-        if(node->value("visible",true)) text(check.x+2*scale_,check.y-2*scale_,"✓",13,C("#E5EEFF"),check.w);
-        hits_.push_back({{check.x-3*scale_,check.y-3*scale_,22*scale_,22*scale_},{{"op","set"},{"id",doc_.selected()},{"property","visible"},{"value",!node->value("visible",true)}},"显示 / 隐藏节点",true});y+=34*scale_;
+        checkbox({check.x-4*scale_,check.y-4*scale_,26*scale_,24*scale_},node->value("visible",true),{{"op","set"},{"id",doc_.selected()},{"property","visible"},{"value",!node->value("visible",true)}},"显示 / 隐藏节点");y+=34*scale_;
         if(group({body.x,y,body.w,27*scale_},"布局")) {
             y+=37*scale_;float w=(body.w-12*scale_)*.5f;
             property({body.x,y,w,25*scale_},*node,"x","X",25);property({body.x+w+12*scale_,y,w,25*scale_},*node,"y","Y",25);y+=34*scale_;
@@ -899,11 +906,11 @@ private:
         if(type=="image") {
             if(group({body.x,y,body.w,27*scale_},"图片")) {
                 y+=37*scale_;property({body.x,y,body.w-32*scale_,25*scale_},*node,"source","素材");
-                button({body.x+body.w-28*scale_,y,28*scale_,25*scale_},"…",{{"op","dialog.image"}},"选择 PNG / JPEG 图片");y+=34*scale_;
+                iconButton({body.x+body.w-28*scale_,y,28*scale_,25*scale_},"folder-open",{{"op","dialog.image"}},"选择 PNG / JPEG 图片");y+=34*scale_;
                 const auto fit=node->value("fit",std::string("contain"));
                 text(body.x,y+5*scale_,"适配",12,muted());
-                Rect box{body.x+76*scale_,y,body.w-76*scale_,25*scale_};renderer_->rect(box,C("#1D1F23"));renderer_->border(box,C("#3A3D43"));
-                button(box,(fit=="contain"?"完整显示":fit=="cover"?"填满裁切":"拉伸")+std::string("  ▾"),{{"op","menu"},{"name","image-fit"}});y+=34*scale_;
+                Rect box{body.x+76*scale_,y,body.w-76*scale_,25*scale_};renderer_->rect(box,T::field);renderer_->border(box,T::border);
+                button(box,fit=="contain"?"完整显示":fit=="cover"?"填满裁切":"拉伸",{{"op","menu"},{"name","image-fit"}});icon({box.x+box.w-23*scale_,box.y,20*scale_,box.h},"chevron-down",T::muted,12);y+=34*scale_;
                 colorProperty({body.x,y,body.w,25*scale_},*node,"tint","着色");y+=34*scale_;
                 property({body.x,y,body.w,25*scale_},*node,"opacity","不透明度");y+=34*scale_;
                 text(body.x,y,"0 为透明，1 为不透明",11,muted(),body.w);y+=26*scale_;
@@ -923,7 +930,7 @@ private:
         renderer_->clip(r);
     }
     void drawOutput(Rect r) {
-        renderer_->rect({r.x,r.y,r.w,28*scale_},C("#282B30"));
+        renderer_->rect({r.x,r.y,r.w,28*scale_},T::header);
         button({r.x+5*scale_,r.y+2*scale_,76*scale_,24*scale_},layout_.outputOpen?"▾ 输出":"▸ 输出",{{"op","output.toggle"}},"展开 / 收起输出面板",layout_.outputOpen);
         if(errorCount_) text(r.x+94*scale_,r.y+6*scale_,std::to_string(errorCount_)+" 条错误",12,C("#D69D98"));
         if(!layout_.outputOpen) return;
@@ -940,7 +947,10 @@ private:
         text(r.x+r.w-120*scale_,r.y+4*scale_,doc_.dirty()?"● 未保存":"已保存",11,doc_.dirty()?C("#D1B88A"):muted(),110*scale_);
     }
     std::vector<std::pair<std::string,Rect>> splitters() const {
-        return {{"left",px(layout_.leftSplit)},{"right",px(layout_.rightSplit)},{"output",px(layout_.outputSplit)}};
+        // A thin visual divider keeps a forgiving five-point drag target.
+        auto vertical=[&](Rect r){r.x-=2;r.w+=4;return px(r);};
+        auto horizontal=[&](Rect r){r.y-=2;r.h+=4;return px(r);};
+        return {{"left",vertical(layout_.leftSplit)},{"right",vertical(layout_.rightSplit)},{"output",horizontal(layout_.outputSplit)}};
     }
     void drawSplitters() {
         for(const auto& [name,r]:splitters()) if(r.contains(mouseX_,mouseY_) || dragMode_==name) renderer_->rect(r,C("#587BA7"));
@@ -962,6 +972,7 @@ private:
     }
     HWND window_;gm::EditorDocuments doc_;gm::GameProject gameProject_;std::string inspectorPage_="components";Json shell_;std::filesystem::path session_,root_,selectedFile_,selectedFolder_;HANDLE lock_=INVALID_HANDLE_VALUE,previewProcess_=nullptr;
     std::unique_ptr<gm::Renderer> renderer_;std::unique_ptr<gm::AuthoringImages> images_;std::filesystem::path shellDirectory_;gm::WorkspaceLayout layout_;
+    std::unique_ptr<gm::EditorIcons> icons_;
     std::map<std::string,gm::EditorCamera> sceneCameras_;
     std::string navigationMode_;int navigationButton_=0;bool navigationRaw_=false,navigationHidden_=false,rightNavigation_=false;
     POINT navigationCursor_{};std::chrono::steady_clock::time_point navigationTick_=std::chrono::steady_clock::now();

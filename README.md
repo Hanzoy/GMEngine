@@ -1,6 +1,8 @@
-# GM Engine 0.10.1（开发版）
+# GM Engine 0.10.2（开发版）
 
 C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `gmctl`；二者调用相同的编辑与项目服务。场景采用 ECS，游戏 UI 保持独立控件树。JSON、图片导入和资源编译留在编辑期，Player 读取二进制资源。
+
+0.10.2 重新整理编辑器工作区，采用 SVG 播放控制、统一图标和主题，以及紧凑 XYZ 组件字段。见 [编辑器界面说明](docs/editor-ui-v0102.md)。
 
 0.10.1 补齐独立的编辑器场景相机：右键飞行、Alt 环绕、中键平移、F 聚焦与网格选择，浏览状态保存到工作区，不修改游戏相机。见 [场景视窗操作](docs/editor-navigation.md)。
 
@@ -18,10 +20,10 @@ C++20 / bgfx / Flecs 游戏引擎。开发者使用图形编辑器，AI 使用 `
 
 ## 安装和启动
 
-0.10.1 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
+0.10.2 本地发行包位于 `D:\Demo\GMEngineBuild\releases`：
 
-- `GMEngine-0.10.1-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
-- `GMEngine-0.10.1-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
+- `GMEngine-0.10.2-Windows-x64-Setup.exe`：按用户安装、开始菜单入口、可选桌面快捷方式、项目文件关联和卸载程序。
+- `GMEngine-0.10.2-Windows-x64.zip`：便携版，保留完整目录结构即可移动。
 
 启动 `bin/gm_editor.exe` 会显示项目选择器，可以打开、新建、继续最近项目。SDK 是安装目录中供 C++ 项目使用的 `sdk/` 子目录，完整产品名称是 **GM Engine**。
 

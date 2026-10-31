@@ -8,6 +8,7 @@
 | bgfx | `fe9bbdec66110f8626b9251a4947fc336ac3f62c` | BSD-2-Clause；见 `third_party/bgfx/LICENSE` |
 | bx | `0e5bbca6878000f6371c65c53fe06f6f0ae87ca9` | BSD-2-Clause；见 `third_party/bx/LICENSE` |
 | bimg | `9bfbd6493b48a15238f2d1374a718ec026524515` | BSD-2-Clause；包含另附许可的依赖，见目录内 LICENSE 文件 |
+| NanoSVG | 随上述 bimg 固定提交提供 | zlib；见 `third_party/bimg/3rdparty/nanosvg/LICENSE`；仅编辑器图标栅格化使用 |
 | nlohmann/json | `v3.11.3` | MIT；见 `third_party/nlohmann/LICENSE.MIT` |
 | stb_image | 随上述 bimg 固定提交提供 | MIT / Public Domain 双许可；见 `third_party/bimg/3rdparty/stb/stb_image.h` 末尾 |
 | Flecs | `v4.1.6` | MIT；见 `third_party/flecs/LICENSE`；场景运行时使用 |

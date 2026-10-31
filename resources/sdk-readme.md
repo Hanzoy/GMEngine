@@ -1,4 +1,6 @@
-# GM Engine 0.10.1
+# GM Engine 0.10.2
+
+0.10.2 更新编辑器工作区：SVG 图标、运行 / 暂停 / 逐帧 / 停止控件、统一面板和紧凑 XYZ 字段。参见 `docs/editor-ui-v0102.md`。
 
 0.10.1 新增 Unity 常用场景导航操作。打开场景页签，按住右键配合 WASD/QE 飞行；中键平移、Alt+左键环绕、滚轮缩放、F 聚焦。详见 `docs/editor-navigation.md`。
 
