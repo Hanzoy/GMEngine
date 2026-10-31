@@ -74,7 +74,7 @@ public:
     ~Editor() {
         if(projectBusy()){projectTask_.cancel();pollProjectTask(true);}
         stopPreview();
-        saveWorkspace(); images_.reset(); renderer_.reset(); std::error_code ec;
+        saveWorkspace(); edit3DView_.reset();edit3D_.reset(); images_.reset(); renderer_.reset(); std::error_code ec;
         std::filesystem::remove(session_/"session.json",ec);
         if(lock_!=INVALID_HANDLE_VALUE) CloseHandle(lock_);
     }
@@ -104,7 +104,7 @@ public:
             if(op=="dialog.image") { if(sceneMode())sceneImageDialog(request.value("type",std::string("SpriteRenderer")),request.value("field",std::string("image")));else chooseImage(); return state(); }
             if(op=="tree.toggle") { auto id=request.at("id").get<std::string>(); if(!collapsed_.erase(id)) collapsed_.insert(id); return state(); }
             if(op=="group.toggle") { auto key=request.at("name").get<std::string>(); if(!groups_.erase(key)) groups_.insert(key); return state(); }
-            if(op=="files.refresh") { images_->clear();refreshFiles(); return state(); }
+            if(op=="files.refresh") { edit3DRevision_=UINT64_MAX; images_->clear();refreshFiles(); return state(); }
             if(op=="files.select") { selectedFile_=std::filesystem::path(gm::wide(request.at("path").get<std::string>()));assetInspection_=true;inspectorScroll_=0; return state(); }
             if(op=="files.folder") { selectedFolder_=std::filesystem::path(gm::wide(request.at("path").get<std::string>()));fileScroll_=0;fileSearch_.clear();return state(); }
             if(op=="asset.add" || op=="asset.apply") { useImage(op=="asset.apply");return state(); }
@@ -931,6 +931,7 @@ private:
     }
     HWND window_;gm::EditorDocuments doc_;gm::GameProject gameProject_;std::string inspectorPage_="components";Json shell_;std::filesystem::path session_,root_,selectedFile_,selectedFolder_;HANDLE lock_=INVALID_HANDLE_VALUE,previewProcess_=nullptr;
     std::unique_ptr<gm::Renderer> renderer_;std::unique_ptr<gm::AuthoringImages> images_;std::filesystem::path shellDirectory_;gm::WorkspaceLayout layout_;
+    std::unique_ptr<gm::SceneRuntime> edit3D_;std::unique_ptr<gm::SceneView> edit3DView_;uint64_t edit3DRevision_=UINT64_MAX;std::filesystem::path edit3DPath_;
     std::unique_ptr<gm::SceneRuntime> scenePlay_;std::unique_ptr<gm::SceneView> sceneView_;
     bool scenePaused_=false,sceneGameView_=false,gameFocus_=false;uint32_t scenePressed_=gm::NoIndex;
     gm::SceneInput pendingSceneInput_{};

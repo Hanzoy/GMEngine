@@ -7,6 +7,7 @@ SceneView::~SceneView() {
     clear();
 }
 void SceneView::clear() {
+    world_.clear();
     for (auto &run : runs_)
         renderer_.releaseGeometry(run.geometry);
     runs_.clear();
@@ -32,6 +33,7 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud) {
         if (scene_ != &scene)
             clear();
         else {
+            world_.clear();
             for (auto handle : images_)
                 renderer_.releaseImage(handle);
             for (auto &run : runs_)
@@ -48,7 +50,8 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud) {
     float x = viewport.x + (viewport.w - asset.width * scale) * .5f,
           y = viewport.y + (viewport.h - asset.height * scale) * .5f;
     renderer_.clip(intersect(viewport, {x, y, asset.width * scale, asset.height * scale}));
-    renderer_.rect({x, y, asset.width * scale, asset.height * scale}, asset.background);
+    const bool worldLayer=world_.begin(asset.rendering,scene.rendering(),{x,y,asset.width*scale,asset.height*scale},asset.background);
+    if(!worldLayer)renderer_.rect({x, y, asset.width * scale, asset.height * scale}, asset.background);
     auto camera = scene.renderCamera();
     const auto &c = camera.transform;
     float determinant = c.a * c.d - c.b * c.c;
@@ -187,6 +190,7 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud) {
         }
     }
     renderer_.clip(canvasBounds);
+    if(worldLayer)world_.finish();
     if (showHud)
         hudView_.render(renderer_, scene.hud(), viewport.w, viewport.h, viewport.x, viewport.y, false);
     renderer_.unclip();

@@ -77,7 +77,8 @@ struct SceneRuntime::Impl {
     std::set<std::pair<sdk::Entity, sdk::Entity>> contacts;
     sdk::Frame frame{};
     std::vector<sdk::CanvasCommand> canvas;
-    size_t imageCount = 0;
+    size_t imageCount = 0,meshCount=0,materialCount=0;
+    std::vector<Mat4> world3D;
     bool structureDirty = true;
     uint64_t structureRevision = 0;
     std::string requestedScene;
@@ -116,7 +117,7 @@ struct SceneRuntime::Impl {
         return {this, &api(), &frame};
     }
     void access(sdk::TypeId type, bool write) const {
-        if (write && type == sdk::id(sdk::WorldPosition::gm_name))
+        if (write && (type == sdk::id(sdk::WorldPosition::gm_name)||type==sdk::id(sdk::WorldTransform3D::gm_name)))
             throw std::runtime_error("WorldPosition is computed and read-only");
         if (!active || !active->accessCount)
             return;
@@ -251,8 +252,10 @@ struct SceneRuntime::Impl {
         registry->validate(type, fields);
         const auto &d = registry->component(type).descriptor;
         for (uint32_t i = 0; i < d.fieldCount; ++i)
-            if (d.fields[i].kind == sdk::Kind::Image && fields[i] != NoIndex && fields[i] >= imageCount)
-                throw std::runtime_error("Image index is outside the scene image bank");
+            if (sdk::resourceKind(d.fields[i].kind) && fields[i] != NoIndex) {
+                auto count=d.fields[i].kind==sdk::Kind::Image?imageCount:d.fields[i].kind==sdk::Kind::Mesh?meshCount:materialCount;
+                if(fields[i]>=count)throw std::runtime_error("Resource index is outside the scene bank");
+            }
     }
     void assign(sdk::Entity e, sdk::TypeId type, std::span<const uint32_t> fields) {
         const auto &d = registry->component(type).descriptor;
@@ -418,7 +421,7 @@ struct SceneRuntime::Impl {
     }
     explicit Impl(const CompiledScene &s, std::shared_ptr<GameRegistry> r, RuntimeDocument *document, const RuntimeCheckpoint* saved=nullptr)
         : registry(std::move(r)), records(s.entities), authoredCount(uint32_t(s.entities.size())),
-          imageCount(s.imageBank.images.size()),hud(document) {
+          imageCount(s.imageBank.images.size()),meshCount(s.rendering.meshes.size()),materialCount(s.rendering.materials.size()),hud(document) {
         children.resize(records.size());
         for (uint32_t i = 0; i < records.size(); ++i)
             if (records[i].parent != NoIndex)
@@ -437,6 +440,7 @@ struct SceneRuntime::Impl {
             registerType(c.id, c.descriptor.size, c.descriptor.alignment);
         registerType(sdk::id(sdk::WorldPosition::gm_name), sizeof(sdk::WorldPosition),
                      alignof(sdk::WorldPosition));
+        registerType(sdk::id(sdk::WorldTransform3D::gm_name),sizeof(sdk::WorldTransform3D),alignof(sdk::WorldTransform3D));
         registerType(sdk::id(EntityIndex::gm_name), sizeof(EntityIndex), alignof(EntityIndex));
         for (uint32_t i = 0; i < records.size(); ++i) {
             auto e = ecs_new(world.c_ptr());
@@ -531,7 +535,9 @@ struct SceneRuntime::Impl {
                 pos->d = parent->b * v.c + parent->d * v.d;
             }
         }
+        transforms3D();
     }
+#include "scene_transforms3d.inl"
     static Rect box(const sdk::WorldPosition &p, float x, float y, float width, float height) {
         float cx = p.x + p.a * (x + width * .5f) + p.c * (y + height * .5f),
               cy = p.y + p.b * (x + width * .5f) + p.d * (y + height * .5f);
@@ -732,6 +738,7 @@ void SceneRuntime::extract() {
     if(reorder){std::sort(sprites_.begin(),sprites_.end(),[](const auto& a,const auto& b){return a.order==b.order?a.entity<b.entity:a.order<b.order;});for(uint32_t i=0;i<sprites_.size();++i)spriteRows_[sprites_[i].entity]=i;rebuild=true;}
     if(rebuild){spriteGrid_.clear();spriteBlockVersions_.assign((sprites_.size()+SpriteBlockSize-1)/SpriteBlockSize,++renderVersion_);for(uint32_t i=0;i<sprites_.size();++i)spriteGrid_.set(i,sweepBounds(sprites_[i]));}
     else for(auto row:changed){spriteGrid_.set(row,sweepBounds(sprites_[row]));spriteBlockVersions_[row/SpriteBlockSize]=++renderVersion_;}
+#include "scene_render_extract.inl"
 }
 void SceneRuntime::syncUi() {
     for (size_t i = 0; i < asset_.bindings.size(); ++i) {

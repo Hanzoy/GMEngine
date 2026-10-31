@@ -61,8 +61,8 @@ std::string utf8(const std::wstring &text) {
     return std::wstring_convert<std::codecvt_utf8<wchar_t>>{}.to_bytes(text);
 #endif
 }
-Renderer::Renderer(void *window, uint32_t width, uint32_t height, bgfx::CallbackI *callback)
-    : width_(width), height_(height) {
+Renderer::Renderer(void *window, uint32_t width, uint32_t height, bgfx::CallbackI *callback, bool vsync)
+    : width_(width), height_(height), resetFlags_(vsync?BGFX_RESET_VSYNC:0) {
     bgfx::Init init;
 #ifdef _WIN32
     init.type = bgfx::RendererType::Direct3D11;
@@ -73,7 +73,7 @@ Renderer::Renderer(void *window, uint32_t width, uint32_t height, bgfx::Callback
     init.swapChain.nwh = window;
     init.swapChain.width = width;
     init.swapChain.height = height;
-    init.reset = BGFX_RESET_VSYNC;
+    init.reset = resetFlags_;
     if (!bgfx::init(init))
         throw std::runtime_error("bgfx platform renderer initialization failed");
     layout_.begin()
@@ -119,6 +119,8 @@ Renderer::~Renderer() {
 }
 void Renderer::begin(uint32_t w, uint32_t h) {
     stats_ = {};
+    activeView_=0; nextView_=1; nextPalette_=0; linearOutput_=false; layerBounds_={0,0,float(w),float(h)};layerWidth_=uint16_t(w);layerHeight_=uint16_t(h);
+    bgfx::setViewFrameBuffer(0,BGFX_INVALID_HANDLE);
     ++frame_;
     frameStart_ = std::chrono::steady_clock::now();
     trimImages();
@@ -128,7 +130,7 @@ void Renderer::begin(uint32_t w, uint32_t h) {
         bgfx::SwapChain chain;
         chain.width = w;
         chain.height = h;
-        bgfx::reset(BGFX_RESET_VSYNC, &chain);
+        bgfx::reset(resetFlags_, &chain);
     }
     if (textCache_.size() > 1024) {
         int removed = 0;
@@ -151,6 +153,10 @@ void Renderer::begin(uint32_t w, uint32_t h) {
     bgfx::touch(0);
     unclip();
 }
+uint8_t Renderer::clearColor(const float* color){if(nextPalette_>=16)throw std::runtime_error("At most 16 scene viewports per frame");auto index=nextPalette_++;bgfx::setPaletteColor(index,color);return index;}
+uint16_t Renderer::nextView(){flush();if(nextView_>=bgfx::getCaps()->limits.maxViews)throw std::runtime_error("Render view budget exceeded");auto view=nextView_++;bgfx::setViewClear(view,BGFX_CLEAR_NONE);bgfx::setViewMode(view,bgfx::ViewMode::Sequential);return view;}
+void Renderer::layer2D(bgfx::FrameBufferHandle target,Rect logical,uint16_t w,uint16_t h,bool linear){activeView_=nextView();layerBounds_=logical;layerWidth_=w;layerHeight_=h;linearOutput_=linear;float ortho[16];bx::mtxOrtho(ortho,logical.x,logical.x+logical.w,logical.y+logical.h,logical.y,0,1000,0,bgfx::getCaps()->homogeneousDepth);bgfx::setViewFrameBuffer(activeView_,target);bgfx::setViewRect(activeView_,0,0,w,h);bgfx::setViewTransform(activeView_,nullptr,ortho);bgfx::setViewName(activeView_,"GM world overlay");}
+void Renderer::backbuffer(){layer2D(BGFX_INVALID_HANDLE,{0,0,float(width_),float(height_)},uint16_t(width_),uint16_t(height_),false);}
 void Renderer::end() {
     flush();
     stats_.textCacheEntries = uint32_t(textCache_.size());

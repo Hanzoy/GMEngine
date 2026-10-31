@@ -37,3 +37,5 @@ miniaudio 头文件由 `scripts/setup-deps.ps1` 获取并验证 SHA-256 `6B20297
 PNG/JPEG 解码使用独立的 `gm_image_import` 模块，仅链接到编辑器、资源编译器和测试；Player 不链接 stb_image。游戏工作区的 `UIExamples/assets/images` 中两张示例图使用内置 imagegen 生成，生成提示词与原始尺寸记录在该目录的 README 中。
 
 引擎安装通过 CMake install 将第三方许可复制到 SDK 的 licenses 目录；stb_image 的 MIT 许可副本位于 resources/stb-license.txt。
+
+0.10 的 mipmap 和 BC3 / ASTC / ETC2 编码位于工具侧 `gm_render_compiler`，使用 bimg / bimg_encode 的编解码器。通用 Shader 通过可选的 bgfx shaderc 离线编译。Player 不链接 `gm_render_compiler` 或 `bimg_encode`，不执行材质 JSON 解析与纹理编码。安装包保留 bgfx / bx / bimg 第三方子目录的许可声明。

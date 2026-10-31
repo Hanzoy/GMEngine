@@ -18,7 +18,8 @@ constexpr TypeId id(const char *text) {
     }
     return h;
 }
-enum class Kind : uint32_t { Float, Int, Bool, Color, Image };
+enum class Kind : uint32_t { Float, Int, Bool, Color, Image, Mesh, Material };
+inline constexpr bool resourceKind(Kind kind){return kind==Kind::Image||kind==Kind::Mesh||kind==Kind::Material;}
 enum class Phase : uint32_t { Input, Simulation, PostTransform, Late };
 struct Field {
     const char *name;

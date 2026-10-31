@@ -9,10 +9,27 @@ if(-not $ShaderCompiler){
     if($LASTEXITCODE){throw 'Shader compiler build failed'}
     $ShaderCompiler=Join-Path $build 'cmake/bgfx/Release/shaderc.exe'
 }
-foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){
-    & $ShaderCompiler -f "$engineSource/src/shaders/vs_2d.sc" -o "$engineSource/src/shaders/vs_2d_$($target[2]).bin.h" --type vertex --platform $target[0] -p $target[1] --varyingdef "$engineSource/src/shaders/varying.def.sc" -i "$engineSource/third_party/bgfx/src" --bin2c "vs_2d_$($target[2])" -O 3
-    if($LASTEXITCODE){throw "2D shader compilation failed: $($target[0])"}
-    $header=Join-Path $engineSource "src/shaders/vs_2d_$($target[2]).bin.h"
-    # shaderc's ASCII preview comments can end in a space; normalize source only.
+$shaders=@(
+    @('vs_2d','vertex','varying.def.sc'),
+    @('vs_mesh','vertex','varying_3d.def.sc'),
+    @('vs_mesh_instanced','vertex','varying_3d.def.sc'),
+    @('fs_material','fragment','varying_3d.def.sc'),
+    @('vs_post','vertex','varying_post.def.sc'),
+    @('fs_bloom','fragment','varying_post.def.sc'),
+    @('fs_blur','fragment','varying_post.def.sc'),
+    @('fs_post','fragment','varying_post.def.sc')
+)
+foreach($shader in $shaders){foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){
+    $header=Join-Path $engineSource "src/shaders/$($shader[0])_$($target[2]).bin.h"
+    & $ShaderCompiler -f "$engineSource/src/shaders/$($shader[0]).sc" -o $header --type $shader[1] --platform $target[0] -p $target[1] --varyingdef "$engineSource/src/shaders/$($shader[2])" -i "$engineSource/third_party/bgfx/src" --bin2c "$($shader[0])_$($target[2])" -O 3
+    if($LASTEXITCODE){throw "Shader compilation failed: $($shader[0]) / $($target[0])"}
     [IO.File]::WriteAllLines($header,@(Get-Content -LiteralPath $header|ForEach-Object {$_.TrimEnd()}),[Text.UTF8Encoding]::new($false))
-}
+}}
+
+foreach($shader in @(@('vs_custom','vertex'),@('fs_custom','fragment'))){foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){
+    $fixture=Join-Path $engineSource 'tests/fixtures/render'
+    $header=Join-Path $fixture "$($shader[0])_$($target[2]).bin.h"
+    & $ShaderCompiler -f "$fixture/$($shader[0]).sc" -o $header --type $shader[1] --platform $target[0] -p $target[1] --varyingdef "$fixture/varying.def.sc" -i "$engineSource/third_party/bgfx/src" --bin2c "$($shader[0])_$($target[2])" -O 3
+    if($LASTEXITCODE){throw 'Custom shader fixture compilation failed'}
+    [IO.File]::WriteAllLines($header,@(Get-Content -LiteralPath $header|ForEach-Object {$_.TrimEnd()}),[Text.UTF8Encoding]::new($false))
+}}

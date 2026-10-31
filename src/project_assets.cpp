@@ -1,5 +1,6 @@
 #include "project.hpp"
 #include "scene_catalog.hpp"
+#include "render_compiler.hpp"
 #include <fstream>
 #include <set>
 #include <sstream>
@@ -68,7 +69,7 @@ Json importProjectAssets(const GameProject &p) {
             continue;
         auto path = item.path();
         auto ext = text(path.extension());
-        if (ext != ".json" && ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".wav" && ext != ".mp3" && ext != ".flac")
+        if (ext != ".json" && ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".wav" && ext != ".mp3" && ext != ".flac" && ext != ".obj" && ext != ".sc" && ext != ".sh" && ext != ".bin")
             continue;
         auto relative = std::filesystem::canonical(path).lexically_relative(root);
         if (relative.empty() || *relative.begin() == "..")
@@ -129,6 +130,8 @@ Json buildProjectAssets(const GameProject &p) {
                             dependency(path.parent_path(), value);
                     }
             }
+        for(const auto& e:source["entities"])for(const auto& c:e["components"]){const auto& d=gameRegistry()->component(c["type"].get<std::string>()).descriptor;for(uint32_t i=0;i<d.fieldCount;++i)if(d.fields[i].kind==sdk::Kind::Mesh||d.fields[i].kind==sdk::Kind::Material)renderDependencies(path.parent_path(),c["fields"][d.fields[i].name].get<std::string>(),dependencies);}
+        for(const auto& file:dependencies){auto dependencyRelative=file.lexically_relative(std::filesystem::canonical(p.root));if(dependencyRelative.empty()||*dependencyRelative.begin()=="..")throw std::runtime_error("Render resource dependency escapes project root");}
         if (source.contains("ui")) {
             auto uiPath = dependency(path.parent_path(), source["ui"]["source"].get<std::string>());
             std::set<std::string> images;
@@ -137,7 +140,7 @@ Json buildProjectAssets(const GameProject &p) {
                 dependency(uiPath.parent_path(), value);
         }
         Json signature = {
-            {"compiler", 9}, {"schema", gameRegistry()->fingerprint()}, {"dependencies", Json::object()}};
+            {"compiler", 10}, {"schema", gameRegistry()->fingerprint()}, {"dependencies", Json::object()}};
         for (const auto &file : dependencies)
             signature["dependencies"][text(file.lexically_relative(p.root))] = hashFile(file);
         auto id = asset.at("id").get<std::string>();

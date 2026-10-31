@@ -33,9 +33,12 @@ class Renderer {
                waitSubmitMs = -1;
         int64_t gpuMemoryBytes = -1, bgfxTextureBytes = -1;
         uint32_t gpuFrame = 0, backendDraws = 0;
+        uint32_t totalMeshes=0, visibleMeshes=0, meshDraws=0, instances=0, triangles=0, postPasses=0, compressedTextures=0, mipLevels=0;
+        uint64_t meshBytes=0, materialTextureBytes=0, targetBytes=0;
+        bool hdr=false;
         std::string backend;
     };
-    Renderer(void *window, uint32_t width, uint32_t height, bgfx::CallbackI *callback = nullptr);
+    Renderer(void *window, uint32_t width, uint32_t height, bgfx::CallbackI *callback = nullptr, bool vsync = true);
     ~Renderer();
     void begin(uint32_t width, uint32_t height);
     void end();
@@ -62,7 +65,17 @@ class Renderer {
         return completed_;
     }
 
+    // Ordered GPU layers share one bgfx frame with editor chrome and retained UI.
+    uint16_t nextView();
+    uint8_t clearColor(const float* color);
+    void layer2D(bgfx::FrameBufferHandle target, Rect logical, uint16_t w, uint16_t h, bool linear);
+    void backbuffer();
+    Stats& frameStats(){return stats_;}
   private:
+    uint16_t activeView_=0, nextView_=1, layerWidth_=0, layerHeight_=0;
+    Rect layerBounds_{};
+    bool linearOutput_=false;
+    uint8_t nextPalette_=0;
     struct Texture {
         bgfx::TextureHandle handle;
         int w, h;
@@ -121,7 +134,7 @@ class Renderer {
     bgfx::ProgramHandle program_ = BGFX_INVALID_HANDLE;
     bgfx::UniformHandle sampler_ = BGFX_INVALID_HANDLE, output_ = BGFX_INVALID_HANDLE;
     bgfx::TextureHandle white_ = BGFX_INVALID_HANDLE;
-    uint32_t width_, height_;
+    uint32_t width_, height_, resetFlags_;
     Rect clipRect_{};
     bool clipEnabled_ = false;
     bgfx::TextureHandle batchTexture_ = BGFX_INVALID_HANDLE;

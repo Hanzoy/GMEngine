@@ -5,6 +5,7 @@
 #include "storage.hpp"
 #include "runtime_layout.hpp"
 #include "spatial_grid.hpp"
+#include "render_assets.hpp"
 #include <memory>
 #include <array>
 namespace gm {
@@ -38,6 +39,7 @@ struct CompiledScene {
     std::vector<SceneEntity> entities;
     CompiledUi imageBank, hud;
     std::vector<SceneBinding> bindings;
+    RenderAssets rendering;
 };
 const ComponentValue *findValue(const SceneEntity &entity, sdk::TypeId type);
 void validateSceneBinary(const CompiledScene &scene);
@@ -136,6 +138,7 @@ class SceneRuntime {
     const std::vector<uint64_t>& spriteBlocks() const {return spriteBlockVersions_;}
     uint64_t renderVersion() const {return renderVersion_;}
     double renderAlpha() const {return interpolate_?clock_.alpha():1.;}
+    const RenderFrame& rendering() const {return rendering_;}
     const std::vector<sdk::CanvasCommand> &canvas() const;
     RuntimeDocument &hud() {
         return *hud_;
@@ -149,6 +152,7 @@ class SceneRuntime {
     CompiledScene asset_;
     std::unique_ptr<RuntimeDocument> hud_;
     std::vector<SceneSprite> sprites_;
+    RenderFrame rendering_;
     std::vector<uint32_t> spriteRows_;
     SpatialGrid spriteGrid_;
     std::vector<uint64_t> spriteBlockVersions_;

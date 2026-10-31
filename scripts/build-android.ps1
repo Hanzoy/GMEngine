@@ -40,6 +40,10 @@ foreach($name in $names){
     New-Item -ItemType Directory -Force (Split-Path $target -Parent) | Out-Null
     Copy-Item -LiteralPath $source -Destination $target
 }
+foreach($compiled in @(Get-ChildItem -LiteralPath $assets -Recurse -File | Where-Object { $_.Extension -in @('.gmscene','.gmprefab') })){
+    & "$engineBin/gm_scenec.exe" $compiled.FullName $compiled.FullName --game $manifest --target android
+    if($LASTEXITCODE){throw 'Android render resource targeting failed'}
+}
 [IO.File]::WriteAllLines((Join-Path $assets 'content.files'),$names,[Text.UTF8Encoding]::new($false))
 $fingerprint=@('game.gmscene')+@($names | Sort-Object -Unique) | ForEach-Object {$_+':'+(Get-FileHash -LiteralPath (Join-Path $assets $_) -Algorithm SHA256).Hash}
 $sha=[Security.Cryptography.SHA256]::Create()

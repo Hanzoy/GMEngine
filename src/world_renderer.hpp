@@ -1,0 +1,22 @@
+#pragma once
+#include "renderer.hpp"
+#include "render_assets.hpp"
+#include <memory>
+namespace gm {
+// Lazy GPU resources: a purely 2D scene creates neither programs nor render targets.
+class WorldRenderer {
+  public:
+    explicit WorldRenderer(Renderer &renderer);
+    ~WorldRenderer();
+    bool begin(const RenderAssets &assets, const RenderFrame &frame, Rect viewport, uint32_t background);
+    void finish();
+    void clear();
+    void instancing(bool enabled);
+
+  private:
+    struct Impl;
+    Renderer &renderer_;
+    std::unique_ptr<Impl> impl_;
+    bool instancing_ = true;
+};
+} // namespace gm

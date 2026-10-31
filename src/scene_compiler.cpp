@@ -1,6 +1,7 @@
 #include "scene_compiler.hpp"
 #include "ui_compiler.hpp"
 #include "image_import.hpp"
+#include "render_compiler.hpp"
 #include <unordered_map>
 #include <functional>
 namespace gm {
@@ -8,11 +9,13 @@ namespace {uint32_t packed(const std::string& c){auto n=uint32_t(std::stoul(c.su
 CompiledScene compileScene(const Json& source,const std::filesystem::path& directory) {
     validateScene(source);auto registry=gameRegistry();CompiledScene s;s.width=source["width"].get<float>();s.height=source["height"].get<float>();s.background=packed(source["background"].get<std::string>());s.schema=registry->fingerprint();s.module=registry->name();s.disabledSystems=source.value("disabledSystems",std::vector<std::string>{});
     UiNode root;root.bounds={0,0,s.width,s.height};root.parent=NoIndex;root.subtreeEnd=1;s.imageBank.nodes.push_back(root);s.hud.nodes.push_back(root);
+    RenderCompiler rendering(s.rendering);
     std::unordered_map<std::string,uint32_t> ids;std::unordered_map<std::filesystem::path,uint32_t> images;uint64_t imageBytes=0;
     for(const auto& e:source["entities"]){ids[e["id"].get<std::string>()]=uint32_t(s.entities.size());s.entities.push_back({e["id"].get<std::string>()});}
     for(size_t i=0;i<s.entities.size();++i){auto& out=s.entities[i];const auto& e=source["entities"][i];if(!e["parent"].is_null())out.parent=ids.at(e["parent"].get<std::string>());
         for(const auto& c:e["components"]){auto name=c["type"].get<std::string>();const auto& d=registry->component(name);auto words=componentWords(name,c["fields"]);
             for(uint32_t f=0;f<d.descriptor.fieldCount;++f)if(d.descriptor.fields[f].kind==sdk::Kind::Image){auto image=c["fields"][d.descriptor.fields[f].name].get<std::string>();if(image.empty())continue;auto path=std::filesystem::canonical(resolveResource(directory,image));auto it=images.find(path);if(it==images.end()){auto id=uint32_t(s.imageBank.images.size());if(id>=512)throw std::runtime_error("Too many scene images");auto decoded=importImage(path);imageBytes+=decoded.rgba.size();if(imageBytes>MaxImageBytes)throw std::runtime_error("Scene images exceed 64 MiB");s.imageBank.images.push_back(std::move(decoded));images[path]=id;words[f]=id;}else words[f]=it->second;}
+            for(uint32_t f=0;f<d.descriptor.fieldCount;++f){auto& field=d.descriptor.fields[f];if(field.kind==sdk::Kind::Mesh)words[f]=rendering.mesh(directory,c["fields"][field.name].get<std::string>());if(field.kind==sdk::Kind::Material)words[f]=rendering.material(directory,c["fields"][field.name].get<std::string>());}
             out.components.push_back({d.id,d.descriptor.version,std::move(words)});
         }
     }

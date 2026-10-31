@@ -1,10 +1,11 @@
 #pragma once
 #include "scene.hpp"
 #include "runtime_view.hpp"
+#include "world_renderer.hpp"
 namespace gm {
 class SceneView {
   public:
-    explicit SceneView(Renderer &renderer) : renderer_(renderer) {}
+    explicit SceneView(Renderer &renderer) : renderer_(renderer), world_(renderer) {}
     ~SceneView();
     void render(SceneRuntime &scene, Rect viewport, bool showHud = true);
     uint32_t hitUi(const SceneRuntime &scene, float x, float y) const;
@@ -12,6 +13,7 @@ class SceneView {
 
   private:
     Renderer &renderer_;
+    WorldRenderer world_;
     const SceneRuntime *scene_ = nullptr;
     Rect viewport_{};
     RuntimeView hudView_;

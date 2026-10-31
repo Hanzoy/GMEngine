@@ -1,10 +1,12 @@
-# GM Engine 0.9.1
+# GM Engine 0.10.0
+
+0.10.0 提供通用材质、自定义 Shader、mipmap、BC3 / ASTC / ETC2、HDR 后处理和基础 3D 渲染。参见 `docs/rendering-v010.md`。安装包可包含 `tools/shaderc.exe`；内置材质和发布后的 Player 无需该工具。场景二进制 v3 可读取原 v2，SDK ABI 保持 10。
 
 0.9.1 优化 2D 渲染：空间查询、共享图片与小图集、静态 GPU 几何缓存、位置插值、性能面板和 `runtime.render.stats`。保持 ABI 10 与资源格式，0.9.0 模块可继续使用。详见 `docs/rendering-v091.md`。
 
 0.9.0 提供原生局域网联机、后台任务、音频、异步资源、独立预制体、UI 流布局 / 字符串绑定 / 虚拟列表、动作映射和多点触摸。Android 最小 Player 和构建脚本在引擎源码中，已生成调试 APK，尚未真机验证。Steam 后端未实现。详细使用及限制见 `docs/engine-v09.md`。
 
-当前 SDK 为 **ABI 10**，旧游戏模块与源资源需重新构建。Frame::input 包括键鼠、触摸和手柄；Context::service 查询 World 服务。Player 在后台继续模拟，最小化时不渲染。下方 ABI 8 / 9 描述属于历史记录。
+当前 SDK 为 **ABI 10**，ABI 10 模块可继续使用；ABI 8 / 9 模块需重新构建。Frame::input 包括键鼠、触摸和手柄；Context::service 查询 World 服务。Player 在后台继续模拟，最小化时不渲染。下方 ABI 8 / 9 描述属于历史记录。
 
 0.8.4 保持 ABI 9，新增可选 `gm_game_extensions` 导出、System 私有状态 checkpoint、存储服务和模态输入路由。动态数字与静态文本共享图集，纯色图形可与文本按原顺序合批。接入说明和边界见 `docs/dsp-feedback-v084.md`。
 

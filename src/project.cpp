@@ -1,4 +1,5 @@
 #include "project.hpp"
+#include "render_compiler.hpp"
 #include "process.hpp"
 #include "scene_catalog.hpp"
 #include <fstream>
@@ -87,7 +88,7 @@ void compileProject(const GameProject& p){buildProjectAssets(p);}
 Json packageProject(const GameProject& p){
     auto operation=lockProjectOperation(p);compileProject(p);auto output=p.root/"dist";
     std::filesystem::create_directories(output/"licenses");
-    auto copy=[&](auto from,auto to){std::filesystem::create_directories(to.parent_path());std::filesystem::copy_file(from,to,std::filesystem::copy_options::overwrite_existing);};
+    auto copy=[&](auto from,auto to){std::filesystem::create_directories(to.parent_path());if((std::filesystem::path(from).extension()==".gmscene"||std::filesystem::path(from).extension()==".gmprefab")){auto scene=loadScene(from);targetRenderAssets(scene.rendering,"windows");saveScene(to,scene);}else std::filesystem::copy_file(from,to,std::filesystem::copy_options::overwrite_existing);};
     copy(engineRoot()/"bin/gm_player.exe",output/"gm_player.exe");copy(p.module,output/"game.dll");copy(p.root/"build/game.gmscene",output/"game.gmscene");
     for(const auto *catalog:{"scenes.gmcatalog","prefabs.gmcatalog"}){
         copy(p.root/"build"/catalog,output/catalog);

@@ -56,20 +56,18 @@ void Renderer::submit(bgfx::TextureHandle texture, const float *transform, const
         transform = identity;
     }
     bgfx::setTransform(transform);
-    const float output[] = {0, 1, 0, 0};
+    const float output[] = {linearOutput_?1.f:0.f, 1, 0, 0};
     bgfx::setUniform(output_, output);
     bgfx::setTexture(0, sampler_, texture);
     if (scissor) {
-        auto clip = intersect(*scissor, {0, 0, float(width_), float(height_)});
-        auto x = std::clamp(int(std::floor(clip.x)), 0, int(width_)),
-             y = std::clamp(int(std::floor(clip.y)), 0, int(height_));
-        auto right = std::clamp(int(std::ceil(clip.x + clip.w)), x, int(width_)),
-             bottom = std::clamp(int(std::ceil(clip.y + clip.h)), y, int(height_));
+        auto clip=intersect(*scissor,layerBounds_);float sx=layerWidth_/layerBounds_.w,sy=layerHeight_/layerBounds_.h;
+        auto x=std::clamp(int(std::floor((clip.x-layerBounds_.x)*sx)),0,int(layerWidth_)),y=std::clamp(int(std::floor((clip.y-layerBounds_.y)*sy)),0,int(layerHeight_));
+        auto right=std::clamp(int(std::ceil((clip.x+clip.w-layerBounds_.x)*sx)),x,int(layerWidth_)),bottom=std::clamp(int(std::ceil((clip.y+clip.h-layerBounds_.y)*sy)),y,int(layerHeight_));
         bgfx::setScissor(uint16_t(x), uint16_t(y), uint16_t(right - x), uint16_t(bottom - y));
     } else
         bgfx::setScissor(UINT16_MAX);
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA);
-    bgfx::submit(0, program_);
+    bgfx::submit(activeView_, program_);
     ++stats_.drawCalls;
 }
 bool Renderer::drawGeometry(uint64_t id, const float *transform, const Rect *scissor) {

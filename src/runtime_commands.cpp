@@ -115,13 +115,13 @@ Json runtimeCommand(SceneRuntime &run, const Json &request, const GameProject &p
         auto input = request.at("fields");
         std::vector<std::pair<uint32_t, uint32_t>> images;
         for (uint32_t i = 0; i < d.descriptor.fieldCount; ++i)
-            if (d.descriptor.fields[i].kind == sdk::Kind::Image) {
+            if (sdk::resourceKind(d.descriptor.fields[i].kind)) {
                 auto key = d.descriptor.fields[i].name;
                 const auto &value = input.at(key);
                 if (value.is_number_unsigned() || (value.is_number_integer() && value.get<int64_t>() >= 0)) {
                     auto image = value.get<uint64_t>();
                     if (image > UINT32_MAX)
-                        throw std::runtime_error("Image index exceeds uint32");
+                        throw std::runtime_error("Resource index exceeds uint32");
                     images.push_back({i, uint32_t(image)});
                     input[key] = "";
                 }

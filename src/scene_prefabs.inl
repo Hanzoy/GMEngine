@@ -27,12 +27,19 @@ uint64_t SceneRuntime::loadPrefab(std::span<const uint8_t> bytes) {
             images.push_back(std::move(image));
         }
     }
+    auto rendering=asset_.rendering;
+    const auto textureBase=uint32_t(rendering.textures.size()), meshBase=uint32_t(rendering.meshes.size()), shaderBase=uint32_t(rendering.shaders.size()),materialBase=uint32_t(rendering.materials.size());
+    for(auto& m:prefab.rendering.materials){if(m.shader!=NoIndex)m.shader+=shaderBase;for(auto& t:m.samplers)t.texture+=textureBase;}
+    auto append=[](auto& to,auto& from){to.insert(to.end(),std::make_move_iterator(from.begin()),std::make_move_iterator(from.end()));};
+    append(rendering.textures,prefab.rendering.textures);append(rendering.meshes,prefab.rendering.meshes);append(rendering.shaders,prefab.rendering.shaders);append(rendering.materials,prefab.rendering.materials);validateRenderAssets(rendering);
     for (auto &entity : prefab.entities)
         for (auto &value : entity.components) {
             const auto &d = registry_->component(value.type).descriptor;
             for (uint32_t f = 0; f < d.fieldCount; ++f)
                 if (d.fields[f].kind == sdk::Kind::Image && value.fields[f] != NoIndex)
                     value.fields[f] = remap.at(value.fields[f]);
+                else if(d.fields[f].kind==sdk::Kind::Mesh&&value.fields[f]!=NoIndex)value.fields[f]+=meshBase;
+                else if(d.fields[f].kind==sdk::Kind::Material&&value.fields[f]!=NoIndex)value.fields[f]+=materialBase;
         }
     auto id = impl_->nextPrefab++;
     impl_->prefabs.emplace(id, std::move(prefab.entities));
@@ -41,6 +48,7 @@ uint64_t SceneRuntime::loadPrefab(std::span<const uint8_t> bytes) {
         impl_->imageCount = asset_.imageBank.images.size();
         ++imageRevision_;
     }
+    asset_.rendering=std::move(rendering);impl_->meshCount=asset_.rendering.meshes.size();impl_->materialCount=asset_.rendering.materials.size();
     return id;
 }
 sdk::Entity SceneRuntime::instantiatePrefab(uint64_t id, sdk::Entity parent) {
