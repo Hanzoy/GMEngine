@@ -130,7 +130,7 @@ Json buildProjectAssets(const GameProject &p) {
                             dependency(path.parent_path(), value);
                     }
             }
-        for(const auto& e:source["entities"])for(const auto& c:e["components"]){const auto& d=gameRegistry()->component(c["type"].get<std::string>()).descriptor;for(uint32_t i=0;i<d.fieldCount;++i)if(d.fields[i].kind==sdk::Kind::Mesh||d.fields[i].kind==sdk::Kind::Material)renderDependencies(path.parent_path(),c["fields"][d.fields[i].name].get<std::string>(),dependencies);}
+        for(const auto& e:source["entities"])for(const auto& c:e["components"]){const auto& d=gameRegistry()->component(c["type"].get<std::string>()).descriptor;for(uint32_t i=0;i<d.fieldCount;++i)if(d.fields[i].kind==sdk::Kind::Mesh||d.fields[i].kind==sdk::Kind::Material||d.fields[i].kind==sdk::Kind::Texture)renderDependencies(path.parent_path(),c["fields"][d.fields[i].name].get<std::string>(),dependencies);}
         for(const auto& file:dependencies){auto dependencyRelative=file.lexically_relative(std::filesystem::canonical(p.root));if(dependencyRelative.empty()||*dependencyRelative.begin()=="..")throw std::runtime_error("Render resource dependency escapes project root");}
         if (source.contains("ui")) {
             auto uiPath = dependency(path.parent_path(), source["ui"]["source"].get<std::string>());
@@ -140,7 +140,7 @@ Json buildProjectAssets(const GameProject &p) {
                 dependency(uiPath.parent_path(), value);
         }
         Json signature = {
-            {"compiler", 10}, {"renderResourceBudget", RenderResourceBudget},
+            {"compiler", 12}, {"renderResourceBudget", RenderResourceBudget},
             {"schema", gameRegistry()->fingerprint()}, {"dependencies", Json::object()}};
         for (const auto &file : dependencies)
             signature["dependencies"][text(file.lexically_relative(p.root))] = hashFile(file);

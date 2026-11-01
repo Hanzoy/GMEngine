@@ -1,5 +1,7 @@
 #include "project.hpp"
 #include "render_compiler.hpp"
+#include "environment_cooker.hpp"
+#include "shadow_math.hpp"
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -173,6 +175,7 @@ int main(int argc, char **argv) {
                   !gm::visibleBounds3D(clip, {100, 0, 1}, {101, 1, 2}, false) &&
                   !gm::visibleBounds3D(clip, {-1, -1, -5}, {1, 1, -4}, false),
               "Frustum classification");
+        #include "lighting_asset_tests.inl"
         std::cout << "Render assets: mip gamma/alpha/normals, four codecs, binary validation, OBJ, ECS "
                      "hierarchy, prefab, dependencies passed\n";
         return 0;

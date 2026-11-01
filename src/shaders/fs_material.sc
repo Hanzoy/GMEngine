@@ -1,5 +1,6 @@
 $input v_world, v_normal, v_texcoord0
 #include <bgfx_shader.sh>
+#include "gm_lighting.sh"
 SAMPLER2D(s_baseColor,0);
 SAMPLER2D(s_normal,1);
 uniform vec4 u_baseColor;
@@ -38,6 +39,7 @@ void main() {
     vec3 fresnel=f0+(1.0-f0)*pow(1.0-vh,5.0);
     vec3 specular=distribution*geometry*fresnel/max(4.0*nl*nv,0.0001);
     vec3 diffuse=(1.0-fresnel)*(1.0-metal)*base.xyz/3.14159265;
-    vec3 color=(diffuse+specular)*u_lightColor.xyz*nl+base.xyz*u_lightColor.w+emission;
+    vec3 color=(diffuse+specular)*u_lightColor.xyz*nl*gmShadow(v_world,normalize(v_normal))+base.xyz*u_lightColor.w+emission;
+    color+=gmEnvironment(n,v,base.xyz,metal,rough,1.0)+gmIndirect(v_world,n,base.xyz,metal,1.0);
     gl_FragColor=vec4(color,base.a);
 }

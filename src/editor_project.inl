@@ -60,6 +60,7 @@ void drawProfiler(Rect r) {
         "3D 提交 / 实例: "+std::to_string(render.meshDraws)+" / "+std::to_string(render.instances),
         "三角形: "+std::to_string(render.triangles)+"  后处理: "+std::to_string(render.postPasses),
         "材质纹理: "+memory(render.materialTextureBytes)+"  压缩: "+std::to_string(render.compressedTextures),
+        "阴影: "+std::to_string(render.shadowDraws)+"  间接光: "+std::to_string(render.rsmDraws)+"  光照目标: "+memory(render.lightingBytes),
         "网格: "+memory(render.meshBytes)+"  渲染目标: "+memory(render.targetBytes),
         "精灵总数: "+std::to_string(render.totalSprites),
         "候选 / 可见: "+std::to_string(render.spriteCandidates)+" / "+std::to_string(render.visibleSprites),

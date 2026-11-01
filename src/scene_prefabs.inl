@@ -39,6 +39,7 @@ uint64_t SceneRuntime::loadPrefab(std::span<const uint8_t> bytes) {
                 if (d.fields[f].kind == sdk::Kind::Image && value.fields[f] != NoIndex)
                     value.fields[f] = remap.at(value.fields[f]);
                 else if(d.fields[f].kind==sdk::Kind::Mesh&&value.fields[f]!=NoIndex)value.fields[f]+=meshBase;
+                else if(d.fields[f].kind==sdk::Kind::Texture&&value.fields[f]!=NoIndex)value.fields[f]+=textureBase;
                 else if(d.fields[f].kind==sdk::Kind::Material&&value.fields[f]!=NoIndex)value.fields[f]+=materialBase;
         }
     auto id = impl_->nextPrefab++;
@@ -48,7 +49,7 @@ uint64_t SceneRuntime::loadPrefab(std::span<const uint8_t> bytes) {
         impl_->imageCount = asset_.imageBank.images.size();
         ++imageRevision_;
     }
-    asset_.rendering=std::move(rendering);impl_->meshCount=asset_.rendering.meshes.size();impl_->materialCount=asset_.rendering.materials.size();
+    asset_.rendering=std::move(rendering);impl_->meshCount=asset_.rendering.meshes.size();impl_->materialCount=asset_.rendering.materials.size();impl_->textureCount=asset_.rendering.textures.size();
     return id;
 }
 sdk::Entity SceneRuntime::instantiatePrefab(uint64_t id, sdk::Entity parent) {

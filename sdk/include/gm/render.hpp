@@ -37,4 +37,24 @@ struct PostProcess {
     uint32_t fxaa = 1;
     float renderScale = 1;
 };
+// Optional scene-wide lighting components. Absence keeps the legacy lighting path.
+struct ShadowSettings {
+    static constexpr const char *gm_name = "ShadowSettings";
+    uint32_t enabled = 1;
+    int32_t resolution = 2048;
+    float distance = 60, depthBias = .0005f, normalBias = .02f, softness = 1;
+};
+struct EnvironmentLight {
+    static constexpr const char *gm_name = "EnvironmentLight";
+    uint32_t enabled = 1, irradiance = UINT32_MAX, radiance = UINT32_MAX;
+    float intensity = 1, rotation = 0;
+    uint32_t background = 1;
+};
+// Reflective shadow map: dynamic, one-bounce diffuse transport from the directional light.
+struct IndirectLight {
+    static constexpr const char *gm_name = "IndirectLight";
+    uint32_t enabled = 1;
+    int32_t resolution = 256, samples = 32;
+    float radius = 5, intensity = 1;
+};
 } // namespace gm::sdk

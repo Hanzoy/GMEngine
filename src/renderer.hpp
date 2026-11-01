@@ -34,7 +34,8 @@ class Renderer {
         int64_t gpuMemoryBytes = -1, bgfxTextureBytes = -1;
         uint32_t gpuFrame = 0, backendDraws = 0;
         uint32_t totalMeshes=0, visibleMeshes=0, meshDraws=0, instances=0, triangles=0, postPasses=0, compressedTextures=0, mipLevels=0;
-        uint64_t meshBytes=0, materialTextureBytes=0, targetBytes=0;
+        uint64_t meshBytes=0, materialTextureBytes=0, targetBytes=0, lightingBytes=0;
+        uint32_t shadowDraws=0,rsmDraws=0,lightingTriangles=0,environmentDraws=0,lightingCacheHits=0;
         bool hdr=false;
         std::string backend;
     };

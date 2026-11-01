@@ -1,4 +1,5 @@
 #include "world_renderer.hpp"
+#include "shadow_math.hpp"
 #include <bgfx/embedded_shader.h>
 #include <algorithm>
 #include <cstring>
@@ -18,6 +19,12 @@
 #include "shaders/fs_blur_essl.bin.h"
 #include "shaders/fs_post_dxbc.bin.h"
 #include "shaders/fs_post_essl.bin.h"
+#include "shaders/fs_shadow_dxbc.bin.h"
+#include "shaders/fs_shadow_essl.bin.h"
+#include "shaders/fs_rsm_dxbc.bin.h"
+#include "shaders/fs_rsm_essl.bin.h"
+#include "shaders/fs_sky_dxbc.bin.h"
+#include "shaders/fs_sky_essl.bin.h"
 namespace gm {
 namespace {
 const bgfx::EmbeddedShader shaders[] = {
@@ -49,6 +56,18 @@ const bgfx::EmbeddedShader shaders[] = {
      {{bgfx::RendererType::Direct3D11, fs_post_dxbc, sizeof(fs_post_dxbc)},
       {bgfx::RendererType::OpenGLES, fs_post_essl, sizeof(fs_post_essl)},
       {bgfx::RendererType::Count, nullptr, 0}}},
+    {"fs_shadow",
+     {{bgfx::RendererType::Direct3D11, fs_shadow_dxbc, sizeof(fs_shadow_dxbc)},
+      {bgfx::RendererType::OpenGLES, fs_shadow_essl, sizeof(fs_shadow_essl)},
+      {bgfx::RendererType::Count, nullptr, 0}}},
+    {"fs_rsm",
+     {{bgfx::RendererType::Direct3D11, fs_rsm_dxbc, sizeof(fs_rsm_dxbc)},
+      {bgfx::RendererType::OpenGLES, fs_rsm_essl, sizeof(fs_rsm_essl)},
+      {bgfx::RendererType::Count, nullptr, 0}}},
+    {"fs_sky",
+     {{bgfx::RendererType::Direct3D11, fs_sky_dxbc, sizeof(fs_sky_dxbc)},
+      {bgfx::RendererType::OpenGLES, fs_sky_essl, sizeof(fs_sky_essl)},
+      {bgfx::RendererType::Count, nullptr, 0}}},
     BGFX_EMBEDDED_SHADER_END()};
 template <class T> void releaseHandle(T &h) {
     if (bgfx::isValid(h))
@@ -70,6 +89,8 @@ bgfx::ProgramHandle program(const char *vs, const char *fs) {
 }
 bgfx::TextureFormat::Enum format(TextureFormat f) {
     switch (f) {
+    case TextureFormat::Rgba16F:
+        return bgfx::TextureFormat::RGBA16F;
     case TextureFormat::BC3:
         return bgfx::TextureFormat::BC3;
     case TextureFormat::ASTC4x4:
@@ -97,7 +118,7 @@ struct WorldRenderer::Impl {
     std::vector<Mesh> meshes;
     std::vector<bgfx::TextureHandle> textures;
     std::vector<Shader> custom;
-    std::map<std::string, bgfx::UniformHandle> uniforms;
+    std::map<std::string, bgfx::UniformHandle, std::less<>> uniforms;
     bgfx::VertexLayout layout, postLayout;
     bgfx::ProgramHandle lit = BGFX_INVALID_HANDLE, instanced = BGFX_INVALID_HANDLE,
                         bloom = BGFX_INVALID_HANDLE, blur = BGFX_INVALID_HANDLE, post = BGFX_INVALID_HANDLE;
@@ -112,7 +133,9 @@ struct WorldRenderer::Impl {
     Rect viewport{};
     sdk::PostProcess effects{};
     explicit Impl(Renderer &renderer) : r(renderer) {}
+#include "world_lighting.inl"
     ~Impl() {
+        destroyLighting();
         for (auto &m : meshes) {
             releaseHandle(m.vb);
             releaseHandle(m.ib);
@@ -142,15 +165,15 @@ struct WorldRenderer::Impl {
         width = height = 0;
         targetBytes = 0;
     }
-    bgfx::UniformHandle uniform(const std::string &name, bool sampler = false) {
+    bgfx::UniformHandle uniform(std::string_view name, bool sampler = false) {
         auto it = uniforms.find(name);
         if (it != uniforms.end())
             return it->second;
-        auto h =
-            bgfx::createUniform(name.c_str(), sampler ? bgfx::UniformType::Sampler : bgfx::UniformType::Vec4);
+        auto h = bgfx::createUniform(std::string(name).c_str(),
+                                     sampler ? bgfx::UniformType::Sampler : bgfx::UniformType::Vec4);
         if (!bgfx::isValid(h))
-            throw std::runtime_error("GPU uniform allocation failed: " + name);
-        uniforms.emplace(name, h);
+            throw std::runtime_error("GPU uniform allocation failed: " + std::string(name));
+        uniforms.emplace(std::string(name), h);
         return h;
     }
     void vec(const char *name, std::array<float, 4> value) {
@@ -169,6 +192,7 @@ struct WorldRenderer::Impl {
             .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
             .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
             .end();
+        initLighting();
         lit = program("vs_mesh", "fs_material");
         instanced = program("vs_mesh_instanced", "fs_material");
         post = program("vs_post", "fs_post");
@@ -208,11 +232,12 @@ struct WorldRenderer::Impl {
             if (!t.linear)
                 flags |= BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT;
             const TextureVariant *chosen = nullptr;
-            std::array<TextureFormat, 4> priority = {TextureFormat::BC3, TextureFormat::ASTC4x4,
-                                                     TextureFormat::ETC2RGBA, TextureFormat::Rgba8};
+            std::array<TextureFormat, 5> priority = {TextureFormat::BC3, TextureFormat::ASTC4x4,
+                                                     TextureFormat::ETC2RGBA, TextureFormat::Rgba8,
+                                                     TextureFormat::Rgba16F};
             if (bgfx::getRendererType() == bgfx::RendererType::OpenGLES)
                 priority = {TextureFormat::ASTC4x4, TextureFormat::ETC2RGBA, TextureFormat::BC3,
-                            TextureFormat::Rgba8};
+                            TextureFormat::Rgba8, TextureFormat::Rgba16F};
             for (auto f : priority) {
                 for (const auto &v : t.variants)
                     if (v.format == f &&
@@ -228,8 +253,9 @@ struct WorldRenderer::Impl {
             }
             if (!chosen)
                 throw std::runtime_error("No supported variant for material texture " +
-                    std::to_string(textures.size()) + " (" + std::to_string(t.width) + "x" +
-                    std::to_string(t.height) + "); include rgba8 fallback for this GPU/dimension");
+                                         std::to_string(textures.size()) + " (" + std::to_string(t.width) +
+                                         "x" + std::to_string(t.height) +
+                                         "); include rgba8 fallback for this GPU/dimension");
             auto h = bgfx::createTexture2D(uint16_t(t.width), uint16_t(t.height), t.levels > 1, 1,
                                            format(chosen->format), flags,
                                            bgfx::copy(chosen->bytes.data(), uint32_t(chosen->bytes.size())));
@@ -237,7 +263,7 @@ struct WorldRenderer::Impl {
                 throw std::runtime_error("Material texture GPU allocation failed");
             textures.push_back(h);
             textureBytes += chosen->bytes.size();
-            compressed += chosen->format != TextureFormat::Rgba8;
+            compressed += chosen->format != TextureFormat::Rgba8 && chosen->format != TextureFormat::Rgba16F;
             mips += t.levels;
             r.frameStats().uploadBytes += chosen->bytes.size();
         }
@@ -325,11 +351,16 @@ struct WorldRenderer::Impl {
             const auto &reflection = custom.at(m.shader).uniforms;
             // Reset every reflected value: shared uniforms must not leak between materials.
             for (const auto &[name, info] : reflection) {
+                if (info.type == bgfx::UniformType::Sampler && name.starts_with("s_gm") &&
+                    name != "s_gmShadow" && name != "s_gmIrradiance" && name != "s_gmRadiance" &&
+                    name != "s_gmRsmPosition" && name != "s_gmRsmNormal" && name != "s_gmRsmFlux")
+                    throw std::runtime_error("Unknown engine lighting sampler: " + name);
                 if (info.num != 1 ||
                     (info.type != bgfx::UniformType::Vec4 && info.type != bgfx::UniformType::Sampler))
                     throw std::runtime_error("Material shader only supports scalar vec4/sampler uniforms: " +
                                              name);
-                if (info.type == bgfx::UniformType::Vec4)
+                if (info.type == bgfx::UniformType::Vec4 && !name.starts_with("u_gm") && name != "u_camera" &&
+                    name != "u_lightDirection" && name != "u_lightColor")
                     vec(name.c_str(), {0, 0, 0, 0});
             }
             for (const auto &p : m.parameters) {
@@ -343,7 +374,7 @@ struct WorldRenderer::Impl {
                     throw std::runtime_error("Material sampler missing from shader: " + p.name);
             }
             for (const auto &[name, info] : reflection)
-                if (info.type == bgfx::UniformType::Sampler &&
+                if (info.type == bgfx::UniformType::Sampler && !name.starts_with("s_gm") &&
                     std::none_of(m.samplers.begin(), m.samplers.end(),
                                  [&](const auto &p) { return p.name == name; }))
                     throw std::runtime_error("Material must bind shader sampler: " + name);
@@ -414,6 +445,7 @@ struct WorldRenderer::Impl {
                     end = first + 1;
                 }
                 bindMaterial(m, frame, eye);
+                bindLighting(assets, frame);
                 bgfx::setVertexBuffer(0, meshes.at(d.mesh).vb);
                 bgfx::setIndexBuffer(meshes.at(d.mesh).ib);
                 if (instance) {
@@ -452,13 +484,14 @@ struct WorldRenderer::Impl {
         submit(transparent, false);
     }
     void fullscreen(bgfx::ProgramHandle p, bgfx::FrameBufferHandle fb, Rect rect, bgfx::TextureHandle input,
-                    bgfx::TextureHandle bloomInput) {
+                    bgfx::TextureHandle bloomInput, bool postPass = true) {
         auto view = r.nextView();
         bgfx::setViewFrameBuffer(view, fb);
         bgfx::setViewRect(view, uint16_t(std::max(0.f, rect.x)), uint16_t(std::max(0.f, rect.y)),
                           uint16_t(rect.w), uint16_t(rect.h));
         bgfx::setViewTransform(view, nullptr, nullptr);
-        bgfx::setViewName(view, "GM post process");
+        bgfx::setViewName(view, postPass ? "GM post process" : "GM environment sky");
+        bgfx::setViewClear(view, BGFX_CLEAR_NONE);
         if (bgfx::getAvailTransientVertexBuffer(4, postLayout) < 4 ||
             bgfx::getAvailTransientIndexBuffer(6) < 6)
             throw std::runtime_error("Postprocess transient buffer capacity exceeded");
@@ -472,13 +505,14 @@ struct WorldRenderer::Impl {
         std::memcpy(ib.data, indices, sizeof(indices));
         bgfx::setVertexBuffer(0, &vb);
         bgfx::setIndexBuffer(&ib);
-        vec("u_postUv", {bgfx::getCaps()->originBottomLeft ? 1.f : 0.f, 0, 0, 0});
+        vec("u_postUv", {postPass && bgfx::getCaps()->originBottomLeft ? 1.f : 0.f, 0, 0, 0});
         texture(0, "s_scene", input);
         texture(1, "s_bloom", bloomInput);
         bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
         bgfx::submit(view, p);
         ++r.frameStats().drawCalls;
-        ++r.frameStats().postPasses;
+        if (postPass)
+            ++r.frameStats().postPasses;
         r.frameStats().vertexUploadBytes += sizeof(verts) + sizeof(indices);
     }
     void finish() {
@@ -534,6 +568,8 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
         std::min({g.effects.renderScale, float(limit) / viewport.w, float(limit) / viewport.h});
     g.targets(uint16_t(std::max(1.f, viewport.w * targetScale)),
               uint16_t(std::max(1.f, viewport.h * targetScale)), g.effects.bloom != 0);
+    g.lightingPasses(assets, frame, camera);
+    bool hasSky = g.sky(assets, frame, camera);
     auto view = renderer_.nextView();
     bgfx::setViewName(view, "GM opaque and transparent 3D");
     bgfx::setViewFrameBuffer(view, g.target);
@@ -545,14 +581,18 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
     float clear[4] = {linear(background & 255), linear((background >> 8) & 255),
                       linear((background >> 16) & 255), 1};
     auto palette = renderer_.clearColor(clear);
-    bgfx::setViewClear(view, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 1.f, 0, palette);
+    if (hasSky)
+        bgfx::setViewClear(view, BGFX_CLEAR_DEPTH, uint32_t(0), 1.f, 0);
+    else
+        bgfx::setViewClear(view, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 1.f, 0, palette);
     bgfx::touch(view);
     g.draw(assets, frame, view, instancing_, camera);
     renderer_.layer2D(g.target, viewport, g.width, g.height, true);
     auto &s = renderer_.frameStats();
     s.meshBytes += g.meshBytes;
     s.materialTextureBytes += g.textureBytes;
-    s.targetBytes += g.targetBytes;
+    s.targetBytes += g.targetBytes + g.lightingBytes;
+    s.lightingBytes += g.lightingBytes;
     s.compressedTextures += g.compressed;
     s.mipLevels += g.mips;
     s.hdr = g.hdr;

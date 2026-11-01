@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 namespace gm {
-enum class TextureFormat : uint32_t { Rgba8, BC3, ASTC4x4, ETC2RGBA };
+enum class TextureFormat : uint32_t { Rgba8, BC3, ASTC4x4, ETC2RGBA, Rgba16F };
 struct TextureVariant {
     TextureFormat format = TextureFormat::Rgba8;
     std::vector<uint8_t> bytes;
@@ -65,6 +65,9 @@ struct RenderFrame {
     bool cameraEnabled = false;
     sdk::DirectionalLight light;
     sdk::PostProcess post{0};
+    sdk::ShadowSettings shadows{0};
+    sdk::EnvironmentLight environment{0};
+    sdk::IndirectLight indirect{0};
 };
 // Optional view-owned camera. Never writes to the game World or copies its mesh list.
 struct ViewCamera3D {

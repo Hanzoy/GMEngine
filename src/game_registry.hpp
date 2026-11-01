@@ -23,7 +23,7 @@ public:
     const auto& systems() const {return systems_;}
     const sdk::SystemState* stateHooks(const std::string& name) const;
     uint64_t fingerprint() const {return fingerprint_;}
-    bool compatible(uint64_t schema) const {return schema==fingerprint_||schema==legacyFingerprint_;}
+    bool compatible(uint64_t schema) const {return schema==fingerprint_||schema==legacyFingerprint_||schema==renderFingerprint_;}
     const std::string& name() const {return name_;}
     const std::filesystem::path& modulePath() const {return original_;}
     void decode(sdk::TypeId type,std::span<const uint32_t> fields,void* output) const;
@@ -34,7 +34,7 @@ private:
     bool registered_=false;
     std::vector<sdk::SystemState> stateHooks_;
     std::vector<NativeComponent> components_;std::vector<NativeSystem> systems_;
-    std::string name_="GMEngine";uint64_t fingerprint_=0,legacyFingerprint_=0;void* library_=nullptr;
+    std::string name_="GMEngine";uint64_t fingerprint_=0,legacyFingerprint_=0,renderFingerprint_=0;void* library_=nullptr;
     std::filesystem::path original_,shadow_;
 };
 std::shared_ptr<GameRegistry> gameRegistry();

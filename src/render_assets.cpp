@@ -70,7 +70,9 @@ bool validName(const std::string &name) {
 }
 } // namespace
 uint64_t textureLevelBytes(TextureFormat format, uint32_t width, uint32_t height) {
-    require(format <= TextureFormat::ETC2RGBA, "Unknown texture format");
+    require(format <= TextureFormat::Rgba16F, "Unknown texture format");
+    if (format == TextureFormat::Rgba16F)
+        return uint64_t(width) * height * 8;
     return format == TextureFormat::Rgba8 ? uint64_t(width) * height * 4
                                           : uint64_t((width + 3) / 4) * ((height + 3) / 4) * 16;
 }
@@ -111,8 +113,12 @@ void validateRenderAssets(const RenderAssets &a) {
         require(!t.variants.empty() && t.variants.size() <= 4, "Missing/too many texture variants");
         std::set<TextureFormat> formats;
         for (auto &v : t.variants) {
+            require(v.format != TextureFormat::Rgba16F || !t.srgb, "HDR textures must be linear");
             require(formats.insert(v.format).second && v.bytes.size() == textureBytes(t, v.format),
                     "Invalid/duplicate texture payload");
+            if (v.format == TextureFormat::Rgba16F)
+                for (size_t i = 0; i < v.bytes.size(); i += 2)
+                    require((v.bytes[i + 1] & 0x7c) != 0x7c, "Non-finite HDR texture texel");
             bytes += v.bytes.size();
         }
     }
@@ -160,14 +166,16 @@ void validateRenderAssets(const RenderAssets &a) {
         for (auto &p : m.parameters) {
             require(validName(p.name) && p.name.starts_with("u_") && names.insert(p.name).second,
                     "Invalid/duplicate material parameter");
-            require(p.name != "u_camera" && p.name != "u_lightDirection" && p.name != "u_lightColor",
+            require(p.name != "u_camera" && p.name != "u_lightDirection" && p.name != "u_lightColor" &&
+                        !p.name.starts_with("u_gm"),
                     "Engine uniform is reserved");
             for (auto v : p.value)
                 require(std::isfinite(v) && std::abs(v) <= 1000000, "Invalid material parameter value");
         }
         for (auto &s : m.samplers)
-            require(validName(s.name) && s.name.starts_with("s_") && names.insert(s.name).second &&
-                        s.stage < 8 && stages.insert(s.stage).second && s.texture < a.textures.size(),
+            require(validName(s.name) && s.name.starts_with("s_") && !s.name.starts_with("s_gm") &&
+                        names.insert(s.name).second && s.stage < 8 && stages.insert(s.stage).second &&
+                        s.texture < a.textures.size(),
                     "Invalid material texture binding");
     }
     require(bytes <= Budget, "Render resource bank exceeds configured ceiling");

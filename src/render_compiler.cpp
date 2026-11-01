@@ -1,5 +1,6 @@
 #include "render_compiler.hpp"
 #include "image_import.hpp"
+#include "environment_cooker.hpp"
 #include "process.hpp"
 #include <fstream>
 #include <sstream>
@@ -216,6 +217,8 @@ uint32_t RenderCompiler::mesh(const std::filesystem::path &directory, const std:
 }
 uint32_t RenderCompiler::texture(const std::filesystem::path &directory, const std::string &reference,
                                  bool normal) {
+    if (reference.empty())
+        return UINT32_MAX;
     auto path = resolve(directory, reference);
     auto key = text(path) + (normal ? ":normal" : ":color");
     if (auto it = textures_.find(key); it != textures_.end())
@@ -225,10 +228,20 @@ uint32_t RenderCompiler::texture(const std::filesystem::path &directory, const s
     TextureSettings settings;
     settings.normalMap = normal;
     settings.srgb = !normal;
+    std::string environment;
+    uint32_t environmentWidth = 512;
+    float environmentExposure = 0;
     if (path.extension() == ".json") {
         auto source = readJson(path);
         if (source.value("format", std::string{}) != "gm.texture" || source.value("version", 0) != 1)
             throw std::runtime_error("Expected gm.texture version 1");
+        environment = source.value("environment", std::string{});
+        environmentExposure = source.value("exposure", 0.f);
+        if (!std::isfinite(environmentExposure) || environmentExposure < -24 || environmentExposure > 24)
+            throw std::runtime_error("Environment import exposure must be -24..24 EV");
+        if (!environment.empty() && environment != "irradiance" && environment != "radiance")
+            throw std::runtime_error("Environment must be irradiance or radiance");
+        environmentWidth = source.value("width", environment == "irradiance" ? 64u : 512u);
         settings.normalMap = source.value("normalMap", normal);
         settings.srgb = source.value("srgb", !settings.normalMap);
         settings.mipmaps = source.value("mipmaps", true);
@@ -251,7 +264,15 @@ uint32_t RenderCompiler::texture(const std::filesystem::path &directory, const s
         }
         path = resolve(path.parent_path(), source.at("source").get<std::string>());
     }
-    auto value = cookTexture(importImage(path), settings);
+    CookedTexture value;
+    if (environment.empty())
+        value = cookTexture(importImage(path), settings);
+    else {
+        auto hdr = importHdr(path);
+        for (auto &v : hdr.rgb)
+            v *= std::exp2(environmentExposure);
+        value = cookEnvironment(hdr, environment == "irradiance", environmentWidth);
+    }
     auto id = uint32_t(assets_.textures.size());
     for (const auto &v : value.variants)
         addBytes(v.bytes.size());
@@ -326,6 +347,11 @@ uint32_t RenderCompiler::shader(const std::filesystem::path &directory, const st
                 if (std::filesystem::exists(standard)) {
                     args.push_back(L"-i");
                     args.push_back(standard.wstring());
+                }
+                auto lightingInclude = std::filesystem::path(__FILE__).parent_path() / "shaders";
+                if (std::filesystem::exists(lightingInclude)) {
+                    args.push_back(L"-i");
+                    args.push_back(lightingInclude.wstring());
                 }
                 for (auto &include : source.value("includeDirectories", Json::array())) {
                     args.push_back(L"-i");
@@ -443,7 +469,7 @@ void targetRenderAssets(RenderAssets &assets, const std::string &platform) {
     auto candidate = assets;
     for (auto &t : candidate.textures) {
         std::erase_if(t.variants, [&](const TextureVariant &v) {
-            return v.format != TextureFormat::Rgba8 &&
+            return v.format != TextureFormat::Rgba8 && v.format != TextureFormat::Rgba16F &&
                    (platform == "windows" ? v.format != TextureFormat::BC3 : v.format == TextureFormat::BC3);
         });
         if (t.variants.empty())

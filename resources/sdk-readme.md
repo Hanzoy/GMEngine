@@ -1,4 +1,6 @@
-# GM Engine 0.10.2
+# GM Engine 0.11.0
+
+0.11.0 增加方向光 PCF 阴影、HDR 环境照明/反射、RSM 一次反弹光及静态光照缓存。通过 ShadowSettings / EnvironmentLight / IndirectLight 组件在编辑器或 CLI 中配置，详见 `docs/lighting-v011.md`。SDK ABI 保持 10。
 
 0.10.2 更新编辑器工作区：SVG 图标、运行 / 暂停 / 逐帧 / 停止控件、统一面板和紧凑 XYZ 字段。参见 `docs/editor-ui-v0102.md`。
 

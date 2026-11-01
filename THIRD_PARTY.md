@@ -40,3 +40,6 @@ PNG/JPEG 解码使用独立的 `gm_image_import` 模块，仅链接到编辑器�
 引擎安装通过 CMake install 将第三方许可复制到 SDK 的 licenses 目录；stb_image 的 MIT 许可副本位于 resources/stb-license.txt。
 
 0.10 的 mipmap 和 BC3 / ASTC / ETC2 编码位于工具侧 `gm_render_compiler`，使用 bimg / bimg_encode 的编解码器。通用 Shader 通过可选的 bgfx shaderc 离线编译。Player 不链接 `gm_render_compiler` 或 `bimg_encode`，不执行材质 JSON 解析与纹理编码。安装包保留 bgfx / bx / bimg 第三方子目录的许可声明。
+
+
+0.11 的 Radiance HDR 导入仍使用工具侧 stb_image，Player 不链接解码器。环境 BRDF 使用 Brian Karis / Epic 在 [Physically Based Shading on Mobile](https://www.unrealengine.com/blog/physically-based-shading-on-mobile?lang=en-US) 中公开并明确允许使用、修改及分发的解析近似。游戏示例的 Poly Haven HDR 与 Intel 模型许可分别保存在游戏项目，不作为引擎源码资产分发。

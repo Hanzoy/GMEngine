@@ -77,7 +77,7 @@ struct SceneRuntime::Impl {
     std::set<std::pair<sdk::Entity, sdk::Entity>> contacts;
     sdk::Frame frame{};
     std::vector<sdk::CanvasCommand> canvas;
-    size_t imageCount = 0,meshCount=0,materialCount=0;
+    size_t imageCount = 0,meshCount=0,materialCount=0,textureCount=0;
     std::vector<Mat4> world3D;
     bool structureDirty = true;
     uint64_t structureRevision = 0;
@@ -253,7 +253,7 @@ struct SceneRuntime::Impl {
         const auto &d = registry->component(type).descriptor;
         for (uint32_t i = 0; i < d.fieldCount; ++i)
             if (sdk::resourceKind(d.fields[i].kind) && fields[i] != NoIndex) {
-                auto count=d.fields[i].kind==sdk::Kind::Image?imageCount:d.fields[i].kind==sdk::Kind::Mesh?meshCount:materialCount;
+                auto count=d.fields[i].kind==sdk::Kind::Image?imageCount:d.fields[i].kind==sdk::Kind::Mesh?meshCount:d.fields[i].kind==sdk::Kind::Texture?textureCount:materialCount;
                 if(fields[i]>=count)throw std::runtime_error("Resource index is outside the scene bank");
             }
     }
@@ -421,7 +421,7 @@ struct SceneRuntime::Impl {
     }
     explicit Impl(const CompiledScene &s, std::shared_ptr<GameRegistry> r, RuntimeDocument *document, const RuntimeCheckpoint* saved=nullptr)
         : registry(std::move(r)), records(s.entities), authoredCount(uint32_t(s.entities.size())),
-          imageCount(s.imageBank.images.size()),meshCount(s.rendering.meshes.size()),materialCount(s.rendering.materials.size()),hud(document) {
+          imageCount(s.imageBank.images.size()),meshCount(s.rendering.meshes.size()),materialCount(s.rendering.materials.size()),textureCount(s.rendering.textures.size()),hud(document) {
         children.resize(records.size());
         for (uint32_t i = 0; i < records.size(); ++i)
             if (records[i].parent != NoIndex)

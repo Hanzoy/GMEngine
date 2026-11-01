@@ -57,3 +57,43 @@ bool renderComponent(sdk::TypeId type) {
            type == id(Camera3D::gm_name) || type == id(DirectionalLight::gm_name) ||
            type == id(PostProcess::gm_name);
 }
+
+const Field shadowFields[] = {GM_BOOL(ShadowSettings, enabled, "启用", 1),
+                              GM_INT(ShadowSettings, resolution, "分辨率", 2048, 256, 4096),
+                              GM_FLOAT(ShadowSettings, distance, "覆盖范围（米）", 60, 1, 1000),
+                              GM_FLOAT(ShadowSettings, depthBias, "深度偏移", .0005, 0, .02),
+                              GM_FLOAT(ShadowSettings, normalBias, "法线偏移（米）", .02, 0, 1),
+                              GM_FLOAT(ShadowSettings, softness, "PCF 半径（像素）", 1, 0, 3)};
+const Field environmentFields[] = {GM_BOOL(EnvironmentLight, enabled, "启用", 1),
+                                   {"irradiance", "漫反射环境贴图", Kind::Texture,
+                                    offsetof(EnvironmentLight, irradiance), UINT32_MAX, 0, UINT32_MAX},
+                                   {"radiance", "预滤波反射贴图", Kind::Texture,
+                                    offsetof(EnvironmentLight, radiance), UINT32_MAX, 0, UINT32_MAX},
+                                   GM_FLOAT(EnvironmentLight, intensity, "强度", 1, 0, 20),
+                                   GM_FLOAT(EnvironmentLight, rotation, "旋转 Y", 0, -360000, 360000),
+                                   GM_BOOL(EnvironmentLight, background, "天空背景", 1)};
+const Field indirectFields[] = {GM_BOOL(IndirectLight, enabled, "启用", 1),
+                                GM_INT(IndirectLight, resolution, "RSM 分辨率", 256, 64, 1024),
+                                GM_INT(IndirectLight, samples, "采样数", 32, 8, 64),
+                                GM_FLOAT(IndirectLight, radius, "反弹半径（米）", 5, .1, 50),
+                                GM_FLOAT(IndirectLight, intensity, "强度", 1, 0, 8)};
+bool validShadows(const void *value, char *error, uint32_t capacity) {
+    auto &s = *static_cast<const ShadowSettings *>(value);
+    if ((s.resolution & (s.resolution - 1)) == 0)
+        return true;
+    if (capacity)
+        std::snprintf(error, capacity, "Shadow resolution must be a power of two");
+    return false;
+}
+bool validIndirect(const void *value, char *error, uint32_t capacity) {
+    auto &s = *static_cast<const IndirectLight *>(value);
+    if ((s.resolution & (s.resolution - 1)) == 0)
+        return true;
+    if (capacity)
+        std::snprintf(error, capacity, "RSM resolution must be a power of two");
+    return false;
+}
+bool lightingComponent(sdk::TypeId type) {
+    return type == id(ShadowSettings::gm_name) || type == id(EnvironmentLight::gm_name) ||
+           type == id(IndirectLight::gm_name);
+}

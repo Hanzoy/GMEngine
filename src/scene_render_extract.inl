@@ -7,6 +7,9 @@ rendering_.light = {};
 rendering_.light.intensity = 0;
 rendering_.light.ambient = .08f;
 rendering_.post = {0};
+rendering_.shadows = {0};
+rendering_.environment = {0};
+rendering_.indirect = {0};
 impl_->context().each<const Impl::EntityIndex, const sdk::WorldTransform3D, const sdk::MeshRenderer>(
     [&](sdk::Entity, const Impl::EntityIndex &index, const sdk::WorldTransform3D &transform,
         const sdk::MeshRenderer &mesh) {
@@ -49,3 +52,17 @@ impl_->context().each<const Impl::EntityIndex, const sdk::PostProcess>([&](sdk::
         postIndex = index.value;
     }
 });
+
+auto lighting = [&]<class T>(T &output) {
+    uint32_t selected = NoIndex;
+    impl_->context().each<const Impl::EntityIndex, const T>(
+        [&](sdk::Entity, const Impl::EntityIndex &index, const T &value) {
+            if (value.enabled && index.value < selected) {
+                output = value;
+                selected = index.value;
+            }
+        });
+};
+lighting(rendering_.shadows);
+lighting(rendering_.environment);
+lighting(rendering_.indirect);
