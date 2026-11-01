@@ -11,6 +11,14 @@ rendering_.shadows = {0};
 rendering_.environment = {0};
 rendering_.indirect = {0};
 rendering_.quality = {0};
+rendering_.points.clear();
+rendering_.fog = {0,0};
+rendering_.planar = {0,.5f,0,0};
+impl_->context().each<const sdk::WorldTransform3D, const sdk::PointLight>(
+    [&](sdk::Entity, const sdk::WorldTransform3D &t, const sdk::PointLight &light) {
+        if(light.enabled && light.intensity>0)
+            rendering_.points.push_back({{t.matrix[12],t.matrix[13],t.matrix[14]},light});
+    });
 impl_->context().each<const Impl::EntityIndex, const sdk::WorldTransform3D, const sdk::MeshRenderer>(
     [&](sdk::Entity, const Impl::EntityIndex &index, const sdk::WorldTransform3D &transform,
         const sdk::MeshRenderer &mesh) {
@@ -68,3 +76,5 @@ lighting(rendering_.shadows);
 lighting(rendering_.environment);
 lighting(rendering_.indirect);
 lighting(rendering_.quality);
+lighting(rendering_.fog);
+lighting(rendering_.planar);

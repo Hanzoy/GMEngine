@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 // A build-time ceiling, not a reservation or a streaming/cache budget. The
@@ -9,8 +10,12 @@
 namespace gm {
 inline constexpr uint64_t RenderResourceBudget = uint64_t(GM_RENDER_RESOURCE_BUDGET_MIB) * 1024 * 1024;
 inline constexpr uint64_t SceneBinaryBudget = RenderResourceBudget + 64ull * 1024 * 1024;
-static_assert(GM_RENDER_RESOURCE_BUDGET_MIB >= 1 && GM_RENDER_RESOURCE_BUDGET_MIB <= 2048);
+static_assert(GM_RENDER_RESOURCE_BUDGET_MIB >= 1 && GM_RENDER_RESOURCE_BUDGET_MIB <= 3840);
 static_assert(SceneBinaryBudget + 12 < UINT32_MAX);
+// Count guards are shared by authoring and binary decoding; byte limits still apply.
+inline constexpr uint32_t RenderTextureLimit = 4096, RenderMeshLimit = 4096;
+// Descriptors and their source files each occupy a dependency entry.
+inline constexpr std::size_t RenderDependencyLimit = 32768;
 inline constexpr bool renderPayloadFits(uint64_t used, uint64_t added) {
     return used <= RenderResourceBudget && added <= RenderResourceBudget - used;
 }

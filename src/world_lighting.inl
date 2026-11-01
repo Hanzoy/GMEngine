@@ -33,15 +33,23 @@ bool lightingUnchanged(const RenderAssets &assets, const RenderFrame &frame) {
         real(v);
     real(frame.light.intensity);
     word(frame.light.color);
-    word(uint32_t(frame.meshes.size()));
+    const auto countOffset = lightingKey.size();
+    word(0);
     word(uint32_t(assets.materials.size()));
+    const CookedMaterial fallback;
     for (const auto &draw : frame.meshes) {
+        const auto &material = draw.material == UINT32_MAX ? fallback : assets.materials.at(draw.material);
+        if (material.blend != BlendMode::Opaque || !material.depthWrite)
+            continue;
+        ++lightingKey[countOffset];
         word(draw.mesh);
         word(draw.material);
         for (float v : draw.transform)
             real(v);
     }
     for (const auto &material : assets.materials) {
+        if (material.blend != BlendMode::Opaque || !material.depthWrite)
+            continue;
         word(uint32_t(material.blend));
         word(uint32_t(material.cull));
         word(material.depthWrite);

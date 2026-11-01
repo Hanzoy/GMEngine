@@ -102,6 +102,10 @@ void qualityBegin(const RenderAssets &assets, const RenderFrame &frame, const Vi
         append(frame.environment);
         append(frame.indirect);
         append(frame.shadows);
+        append(frame.fog);
+        append(frame.planar);
+        append(uint32_t(frame.points.size()));
+        for(const auto &p : frame.points) { append(p.position); append(p.light); }
         append(qualityBackground);
         append(uint32_t(frame.meshes.size()));
         append(uint32_t(assets.materials.size()));

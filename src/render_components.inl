@@ -9,6 +9,20 @@ const Field transform3Fields[] = {GM_FLOAT(Transform3D, x, "位置 X", 0, -10000
                                   GM_FLOAT(Transform3D, scaleY, "缩放 Y", 1, .001, 1000),
                                   GM_FLOAT(Transform3D, scaleZ, "缩放 Z", 1, .001, 1000)};
 const char *transform3Dependency[] = {"Transform3D"};
+const Field pointFields[] = {
+    {"color", "颜色", Kind::Color, offsetof(PointLight,color), 0xffffffff, 0, UINT32_MAX},
+    GM_FLOAT(PointLight,intensity,"强度",20,0,100000),
+    GM_FLOAT(PointLight,range,"范围",10,.01,1000), GM_BOOL(PointLight,enabled,"启用",1)};
+const Field planarFields[] = {GM_FLOAT(PlanarReflection,height,"反射平面高度",0,-100000,100000),
+    GM_FLOAT(PlanarReflection,resolutionScale,"反射分辨率比例",.5,.25,1),
+    GM_FLOAT(PlanarReflection,strength,"反射强度",1,0,2),GM_BOOL(PlanarReflection,enabled,"启用",1)};
+const Field fogFields[] = {
+    {"color", "雾颜色", Kind::Color, offsetof(HeightFog,color), 0xff665544, 0, UINT32_MAX},
+    GM_FLOAT(HeightFog,density,"密度",.02,0,10),
+    GM_FLOAT(HeightFog,heightFalloff,"高度衰减",.12,0,10),
+    GM_FLOAT(HeightFog,baseHeight,"基准高度",0,-100000,100000),
+    GM_FLOAT(HeightFog,startDistance,"起始距离",0,0,100000),
+    GM_FLOAT(HeightFog,maxOpacity,"最大不透明度",.95,0,1), GM_BOOL(HeightFog,enabled,"启用",1)};
 const Field meshFields[] = {
     {"mesh", "网格", Kind::Mesh, offsetof(MeshRenderer, mesh), UINT32_MAX, 0, UINT32_MAX},
     {"material", "材质", Kind::Material, offsetof(MeshRenderer, material), UINT32_MAX, 0, UINT32_MAX},

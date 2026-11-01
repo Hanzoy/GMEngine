@@ -153,6 +153,8 @@ struct WorldRenderer::Impl {
     explicit Impl(Renderer &renderer) : r(renderer) {}
 #include "world_lighting.inl"
 #include "world_quality.inl"
+#include "world_local_lighting.inl"
+#include "world_planar.inl"
     ~Impl() {
         destroyQuality();
         destroyLighting();
@@ -177,6 +179,7 @@ struct WorldRenderer::Impl {
         targetsClear();
     }
     void targetsClear() {
+        planarClear();
         qualityClear();
         releaseHandle(target);
         releaseHandle(ping);
@@ -369,6 +372,7 @@ struct WorldRenderer::Impl {
             vec("u_surface", {0, .6f, 0, 0});
             vec("u_emission", {0, 0, 0, 0});
             vec("u_unlit", {0, 0, 0, 0});
+            vec("u_planar", {0, 0, 0, 0});
             vec("u_uvTransform", {1, 1, 0, 0});
             texture(0, "s_baseColor", white);
             texture(1, "s_normal", normal);
@@ -379,7 +383,7 @@ struct WorldRenderer::Impl {
                 if (info.type == bgfx::UniformType::Sampler && name.starts_with("s_gm") &&
                     name != "s_gmShadow" && name != "s_gmIrradiance" && name != "s_gmRadiance" &&
                     name != "s_gmRsmPosition" && name != "s_gmRsmNormal" && name != "s_gmRsmFlux" &&
-                    name != "s_gmAmbient")
+                    name != "s_gmAmbient" && name != "s_gmPlanar")
                     throw std::runtime_error("Unknown engine lighting sampler: " + name);
                 if (info.num != 1 ||
                     (info.type != bgfx::UniformType::Vec4 && info.type != bgfx::UniformType::Sampler))
@@ -437,6 +441,11 @@ struct WorldRenderer::Impl {
             return d.material == UINT32_MAX ? fallback : assets.materials.at(d.material);
         };
         for (const auto &d : frame.meshes) {
+            if (reflecting) {
+                bool receiver=false;
+                for(const auto &p:material(d).parameters)if(p.name=="u_planar"&&p.value[0]>0)receiver=true;
+                if(receiver)continue;
+            }
             const auto &mesh = assets.meshes.at(d.mesh);
             if (!visibleBounds3D(multiply3D(vp, d.transform), mesh.minimum, mesh.maximum,
                                  bgfx::getCaps()->homogeneousDepth))
@@ -453,12 +462,13 @@ struct WorldRenderer::Impl {
         });
         std::stable_sort(transparent.begin(), transparent.end(),
                          [](auto a, auto b) { return a.distance > b.distance; });
+        bool localInitialized = false;
         auto submit = [&](const std::vector<Item> &list, bool batch) {
             for (size_t first = 0; first < list.size();) {
                 const auto &d = *list[first].draw;
                 const auto &m = material(d);
                 size_t end = first + 1;
-                if (batch && useInstances && m.shader == UINT32_MAX)
+                if (batch && useInstances && m.shader == UINT32_MAX && frame.points.empty())
                     while (end < list.size() && list[end].draw->mesh == d.mesh &&
                            list[end].draw->material == d.material)
                         ++end;
@@ -471,6 +481,11 @@ struct WorldRenderer::Impl {
                 bindMaterial(m, frame, eye);
                 bindLighting(assets, frame);
                 bindAmbient();
+                bindPlanar(frame);
+                if (!frame.points.empty() || !localInitialized) {
+                    bindLocal(assets,frame,d);
+                    localInitialized = true;
+                }
                 bgfx::setVertexBuffer(0, meshes.at(d.mesh).vb);
                 bgfx::setIndexBuffer(meshes.at(d.mesh).ib);
                 if (instance) {
@@ -489,9 +504,9 @@ struct WorldRenderer::Impl {
                 if (m.depthWrite)
                     state |= BGFX_STATE_WRITE_Z;
                 if (m.cull == CullMode::Back)
-                    state |= BGFX_STATE_CULL_CCW;
+                    state |= reflecting ? BGFX_STATE_CULL_CW : BGFX_STATE_CULL_CCW;
                 else if (m.cull == CullMode::Front)
-                    state |= BGFX_STATE_CULL_CW;
+                    state |= reflecting ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
                 if (m.blend == BlendMode::Alpha)
                     state |= BGFX_STATE_BLEND_ALPHA;
                 else if (m.blend == BlendMode::Additive)
@@ -598,6 +613,7 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
     g.qualityBackground = background;
     g.qualityBegin(assets, frame, camera);
     g.lightingPasses(assets, frame, camera);
+    g.planarPass(assets,frame,camera,instancing_,background);
     g.ambientPass(assets, frame);
     bool hasSky = g.sky(assets, frame, camera);
     auto view = renderer_.nextView();
@@ -621,7 +637,8 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
     auto &s = renderer_.frameStats();
     s.meshBytes += g.meshBytes;
     s.materialTextureBytes += g.textureBytes;
-    s.targetBytes += g.targetBytes + g.lightingBytes + g.qualityBytes;
+    s.targetBytes += g.targetBytes + g.lightingBytes + g.qualityBytes + g.planarBytes;
+    s.reflectionBytes += g.planarBytes;
     s.lightingBytes += g.lightingBytes;
     s.qualityBytes += g.qualityBytes;
     s.compressedTextures += g.compressed;

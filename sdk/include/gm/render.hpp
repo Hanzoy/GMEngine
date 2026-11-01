@@ -63,4 +63,24 @@ struct RenderQuality {
     uint32_t enabled = 1, temporalAA = 1, ambientOcclusion = 1;
     float historyWeight = .9f, aoRadius = 1.f, aoIntensity = 1.5f, aoBias = .05f;
 };
+// Forward point lights. The renderer selects up to eight affecting lights per mesh.
+// Intensity is linear radiant intensity; local light shadows are not implemented.
+struct PointLight {
+    static constexpr const char *gm_name = "PointLight";
+    uint32_t color = 0xffffffff;
+    float intensity = 20, range = 10;
+    uint32_t enabled = 1;
+};
+struct HeightFog {
+    static constexpr const char *gm_name = "HeightFog";
+    uint32_t color = 0xff665544;
+    float density = .02f, heightFalloff = .12f, baseHeight = 0, startDistance = 0, maxOpacity = .95f;
+    uint32_t enabled = 1;
+};
+// One horizontal reflection plane per viewport. Materials opt in via u_planar.x.
+struct PlanarReflection {
+    static constexpr const char *gm_name = "PlanarReflection";
+    float height=0, resolutionScale=.5f, strength=1;
+    uint32_t enabled=1;
+};
 } // namespace gm::sdk

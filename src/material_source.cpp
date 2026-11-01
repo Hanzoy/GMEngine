@@ -51,7 +51,7 @@ Json normalizedMaterial(const Json &source) {
     }
     if (out["shader"] == "lit" || out["shader"] == "unlit") {
         const std::set<std::string> builtin = {"u_baseColor", "u_surface", "u_emission", "u_unlit",
-                                               "u_uvTransform"};
+                                               "u_uvTransform", "u_planar"};
         for (auto &p : m.parameters)
             if (!builtin.count(p.name))
                 throw std::runtime_error("Unknown builtin material parameter: " + p.name);

@@ -198,7 +198,7 @@ uint32_t RenderCompiler::mesh(const std::filesystem::path &directory, const std:
     auto key = reference.starts_with("builtin:") ? reference : text(resolve(directory, reference));
     if (auto it = meshes_.find(key); it != meshes_.end())
         return it->second;
-    if (assets_.meshes.size() >= 1024)
+    if (assets_.meshes.size() >= RenderMeshLimit)
         throw std::runtime_error("Too many meshes");
     CookedMesh value;
     if (reference.starts_with("builtin:"))
@@ -223,7 +223,7 @@ uint32_t RenderCompiler::texture(const std::filesystem::path &directory, const s
     auto key = text(path) + (normal ? ":normal" : ":color");
     if (auto it = textures_.find(key); it != textures_.end())
         return it->second;
-    if (assets_.textures.size() >= 512)
+    if (assets_.textures.size() >= RenderTextureLimit)
         throw std::runtime_error("Too many textures");
     TextureSettings settings;
     settings.normalMap = normal;
@@ -417,13 +417,15 @@ uint32_t RenderCompiler::material(const std::filesystem::path &directory, const 
 }
 void renderDependencies(const std::filesystem::path &directory, const std::string &reference,
                         std::set<std::filesystem::path> &output, uint32_t depth) {
-    if (depth > 64 || output.size() > 4096)
+    if (depth > 64 || output.size() > RenderDependencyLimit)
         throw std::runtime_error("Too many rendering dependencies");
     if (reference.empty() || reference.starts_with("builtin:"))
         return;
     auto path = std::filesystem::canonical(resolveResource(directory, reference));
     if (!output.insert(path).second)
         return;
+    if (output.size() > RenderDependencyLimit)
+        throw std::runtime_error("Too many rendering dependencies");
     if (path.extension() != ".json")
         return;
     auto s = readJson(path);

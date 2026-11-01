@@ -1,4 +1,4 @@
-// Engine lighting ABI. Stages 0..7 belong to materials, 8..14 to the renderer.
+// Engine lighting ABI. Stages 0..7 belong to materials, 8..15 to the renderer.
 // Include after bgfx_shader.sh; all vectors are world-space, radiance is linear HDR.
 SAMPLER2D(s_gmShadow,8);
 SAMPLER2D(s_gmIrradiance,9);
@@ -7,6 +7,31 @@ SAMPLER2D(s_gmRsmPosition,11);
 SAMPLER2D(s_gmRsmNormal,12);
 SAMPLER2D(s_gmRsmFlux,13);
 SAMPLER2D(s_gmAmbient,14);
+SAMPLER2D(s_gmPlanar,15);
+uniform vec4 u_gmPlanar;
+uniform vec4 u_gmPlanarRow0;
+uniform vec4 u_gmPlanarRow1;
+uniform vec4 u_gmPlanarRow2;
+uniform vec4 u_gmPlanarRow3;
+uniform vec4 u_gmPlanarClip;
+void gmClipReflection(vec3 world){
+    if(u_gmPlanarClip.x>.5&&world.y<u_gmPlanarClip.y-.002)discard;
+}
+// Approximate rough horizontal reflection. mask selects wet patches; normal distorts their image.
+vec3 gmPlanarReflection(vec3 color,vec3 world,vec3 normal,vec3 view,float rough,float mask){
+    if(u_gmPlanar.x<=0.0||mask<=0.0)return color;
+    vec4 p=vec4(world,1.0);float w=dot(u_gmPlanarRow3,p);
+    if(w<=0.0)return color;
+    vec2 uv=vec2(dot(u_gmPlanarRow0,p),dot(u_gmPlanarRow1,p))/w*vec2(.5,u_gmPlanar.w)+.5;
+    uv+=normal.xz*.015;
+    float edge=smoothstep(0.0,.04,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
+    vec2 blur=u_gmPlanar.yz*rough*12.0;
+    vec3 reflected=texture2D(s_gmPlanar,uv).xyz*.4;
+    reflected+=(texture2D(s_gmPlanar,uv+vec2(blur.x,0)).xyz+texture2D(s_gmPlanar,uv-vec2(blur.x,0)).xyz
+                +texture2D(s_gmPlanar,uv+vec2(0,blur.y)).xyz+texture2D(s_gmPlanar,uv-vec2(0,blur.y)).xyz)*.15;
+    float fresnel=.04+.96*pow(1.0-max(dot(normal,view),0.0),5.0);
+    return mix(color,reflected,clamp(mask*u_gmPlanar.x*fresnel*(1.0-rough*.7)*edge,0.0,1.0));
+}
 uniform vec4 u_gmScreen0;
 uniform vec4 u_gmScreen1;
 uniform vec4 u_gmScreen3;
@@ -127,4 +152,58 @@ vec3 gmIndirect(vec3 world,vec3 normal,vec3 base,float metal,float ao) {
         result+=texture2DLod(s_gmRsmFlux,uv,0.0).xyz*geometry;
     }
     return result*u_gmRsm.w*base*(1.0-metal)*.3183098862*ao;
+}
+
+// Eight bounded, per-mesh point lights; no local shadow map is implied.
+uniform vec4 u_gmPointP0;
+uniform vec4 u_gmPointC0;
+uniform vec4 u_gmPointP1;
+uniform vec4 u_gmPointC1;
+uniform vec4 u_gmPointP2;
+uniform vec4 u_gmPointC2;
+uniform vec4 u_gmPointP3;
+uniform vec4 u_gmPointC3;
+uniform vec4 u_gmPointP4;
+uniform vec4 u_gmPointC4;
+uniform vec4 u_gmPointP5;
+uniform vec4 u_gmPointC5;
+uniform vec4 u_gmPointP6;
+uniform vec4 u_gmPointC6;
+uniform vec4 u_gmPointP7;
+uniform vec4 u_gmPointC7;
+uniform vec4 u_gmFogColor;
+uniform vec4 u_gmFog;
+vec3 gmPoint(vec4 pr,vec4 ci,vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough){
+    if(ci.w<=0.0)return vec3_splat(0.0);
+    vec3 delta=pr.xyz-p;float d2=dot(delta,delta);
+    if(d2>=pr.w*pr.w)return vec3_splat(0.0);
+    vec3 l=delta*inversesqrt(max(d2,.0001)),h=normalize(v+l);
+    float nl=max(dot(n,l),0.0),nv=max(dot(n,v),.0001),nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
+    float a=rough*rough,a2=a*a,den=nh*nh*(a2-1.0)+1.0;
+    float distribution=a2/max(3.14159265*den*den,.00001),k=(rough+1.0)*(rough+1.0)/8.0;
+    float geometry=nl/(nl*(1.0-k)+k)*nv/(nv*(1.0-k)+k);
+    vec3 f0=mix(vec3_splat(.04),base,metal),f=f0+(1.0-f0)*pow(1.0-vh,5.0);
+    vec3 brdf=(1.0-f)*(1.0-metal)*base*.3183098862+distribution*geometry*f/max(4.0*nl*nv,.0001);
+    float fade=max(1.0-pow(d2/(pr.w*pr.w),2.0),0.0);
+    return brdf*ci.xyz*ci.w*nl*fade*fade/max(d2,.04);
+}
+vec3 gmLocalLighting(vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough){
+    vec3 result=vec3_splat(0.0);
+    result+=gmPoint(u_gmPointP0,u_gmPointC0,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP1,u_gmPointC1,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP2,u_gmPointC2,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP3,u_gmPointC3,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP4,u_gmPointC4,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP5,u_gmPointC5,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP6,u_gmPointC6,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP7,u_gmPointC7,p,n,v,base,metal,rough);
+    return result;
+}
+vec3 gmHeightFog(vec3 color,vec3 world,vec3 eye){
+    if(u_gmFogColor.w<=0.0)return color;
+    float distance=length(world-eye),dh=(world.y-eye.y)*u_gmFog.y;
+    float integral=abs(dh)<.001?1.0-dh*.5:(1.0-exp(clamp(-dh,-20.0,20.0)))/dh;
+    float density=u_gmFogColor.w*exp(clamp(-(eye.y-u_gmFog.z)*u_gmFog.y,-20.0,20.0));
+    float optical=density*max(distance-u_gmFog.x,0.0)*max(integral,0.0);
+    return mix(color,u_gmFogColor.xyz,min(1.0-exp(-optical),u_gmFog.w));
 }

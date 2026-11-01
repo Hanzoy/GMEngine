@@ -69,6 +69,10 @@ struct RenderFrame {
     sdk::EnvironmentLight environment{0};
     sdk::IndirectLight indirect{0};
     sdk::RenderQuality quality{0};
+    struct Point { Vec3 position; sdk::PointLight light; };
+    std::vector<Point> points;
+    sdk::HeightFog fog{0,0};
+    sdk::PlanarReflection planar{0,.5f,0,0};
 };
 // Optional view-owned camera. Never writes to the game World or copies its mesh list.
 struct ViewCamera3D {

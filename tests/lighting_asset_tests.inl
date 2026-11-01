@@ -63,6 +63,23 @@ auto instanceFields =
 gm::sdk::EnvironmentLight remappedEnvironment;
 gm::gameRegistry()->decode(gm::sdk::id("EnvironmentLight"), instanceFields, &remappedEnvironment);
 check(remappedEnvironment.radiance == 1, "Prefab environment texture index was not remapped");
+// Scene data, editor registration and binary Player loading share these components.
+auto localScene=gm::newScene();
+localScene["entities"]=gm::Json::array({
+    entity("point",{component("Transform3D",{{"x",3},{"y",2}}),component("PointLight",{{"intensity",42},{"range",7}})}),
+    entity("atmosphere",{component("HeightFog",{{"density",.04},{"baseHeight",2}}),
+                         component("PlanarReflection",{{"height",1},{"resolutionScale",.25}})})});
+auto localAsset=gm::compileScene(localScene,root);
+gm::SceneRuntime localRun(gm::decodeScene(gm::encodeScene(localAsset)));
+const auto &localFrame=localRun.rendering();
+check(localFrame.points.size()==1&&localFrame.points[0].position[0]==3&&localFrame.points[0].position[1]==2&&
+      localFrame.points[0].light.intensity==42&&localFrame.points[0].light.range==7,"Point light scene extraction");
+check(localFrame.fog.density==.04f&&localFrame.fog.baseHeight==2&&localFrame.planar.height==1&&
+      localFrame.planar.resolutionScale==.25f,"Atmosphere/reflection binary roundtrip");
+localScene["entities"][0]["components"][1]["fields"]["range"]=-1;
+rejects([&]{gm::compileScene(localScene,root);});
+check(gm::normalizedMaterial({{"format","gm.material"},{"version",1},{"parameters",{{"u_planar",{1,0,0,0}}}}})
+          ["parameters"].contains("u_planar"),"Builtin planar material source rejected");
 auto projectionFrame = gm::RenderFrame{};
 projectionFrame.shadows = {};
 projectionFrame.light = {0, -1, 0};

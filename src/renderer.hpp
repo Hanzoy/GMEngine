@@ -38,6 +38,8 @@ class Renderer {
         uint32_t depthPrepassDraws = 0, aoPasses = 0, temporalPasses = 0, temporalResets = 0,
                  temporalCacheHits = 0;
         uint64_t qualityBytes = 0;
+        uint32_t reflectionDraws = 0, reflectionTriangles = 0;
+        uint64_t reflectionBytes = 0;
         uint32_t shadowDraws=0,rsmDraws=0,lightingTriangles=0,environmentDraws=0,lightingCacheHits=0;
         bool hdr=false;
         std::string backend;

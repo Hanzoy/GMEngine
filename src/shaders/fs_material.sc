@@ -7,16 +7,18 @@ uniform vec4 u_baseColor;
 uniform vec4 u_surface;
 uniform vec4 u_emission;
 uniform vec4 u_unlit;
+uniform vec4 u_planar;
 uniform vec4 u_uvTransform;
 uniform vec4 u_camera;
 uniform vec4 u_lightDirection;
 uniform vec4 u_lightColor;
 void main() {
+    gmClipReflection(v_world);
     vec2 uv=v_texcoord0*u_uvTransform.xy+u_uvTransform.zw;
     vec4 base=texture2D(s_baseColor,uv)*u_baseColor;
     if(base.a<u_surface.z)discard;
     vec3 emission=u_emission.xyz*u_emission.w;
-    if(u_unlit.x>0.5){gl_FragColor=vec4(base.xyz+emission,base.a);return;}
+    if(u_unlit.x>0.5){gl_FragColor=vec4(gmHeightFog(base.xyz+emission,v_world,u_camera.xyz),base.a);return;}
     vec3 n=normalize(v_normal);
     if(u_surface.w>0.0){
         vec3 q1=dFdx(v_world),q2=dFdy(v_world);vec2 s1=dFdx(uv),s2=dFdy(uv);
@@ -43,5 +45,7 @@ void main() {
     float ao=gmAmbientOcclusion(v_world);
     vec3 color=(diffuse+specular)*u_lightColor.xyz*nl*gmShadow(v_world,normalize(v_normal))+base.xyz*u_lightColor.w*ao+emission;
     color+=gmEnvironment(n,v,base.xyz,metal,rough,ao)+gmIndirect(v_world,n,base.xyz,metal,ao);
-    gl_FragColor=vec4(color,base.a);
+    color+=gmLocalLighting(v_world,n,v,base.xyz,metal,rough);
+    color=gmPlanarReflection(color,v_world,n,v,rough,u_planar.x);
+    gl_FragColor=vec4(gmHeightFog(color,v_world,u_camera.xyz),base.a);
 }

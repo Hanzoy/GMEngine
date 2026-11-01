@@ -17,6 +17,16 @@ int main() {
         check(!gm::renderPayloadFits(gm::RenderResourceBudget,1));
         check(!gm::renderPayloadFits(UINT64_MAX,1));
         check(!gm::renderPayloadFits(1,UINT64_MAX));
+        gm::RenderAssets many;
+        gm::CookedTexture small{1,1,1,true,true,true,{{gm::TextureFormat::Rgba8,{255,255,255,255}}}};
+        many.textures.resize(gm::RenderTextureLimit,small);
+        check(gm::decodeRenderAssets(gm::encodeRenderAssets(many)).textures.size()==gm::RenderTextureLimit);
+        many.textures.push_back(small);
+        rejects([&]{gm::validateRenderAssets(many);});
+        many={};many.meshes.resize(gm::RenderMeshLimit,gm::primitiveMesh("builtin:plane"));
+        gm::validateRenderAssets(many);
+        many.meshes.push_back(gm::primitiveMesh("builtin:plane"));
+        rejects([&]{gm::validateRenderAssets(many);});
         gm::RenderAssets bank;
         gm::CookedTexture t{512,256,1,true,true,true,{{gm::TextureFormat::Rgba8,std::vector<uint8_t>(512*256*4,127)}}};
         bank.textures.push_back(t);

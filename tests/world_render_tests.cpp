@@ -356,6 +356,8 @@ int main(int argc, char **argv) {
             #include "lighting_gpu_tests.inl"
             #include "shadow_filter_gpu_tests.inl"
 #include "quality_gpu_tests.inl"
+#include "local_lighting_gpu_tests.inl"
+#include "planar_gpu_tests.inl"
             // Resize and repeated resource lifetimes must not retain targets from old worlds.
             for (int n = 0; n < 12; ++n) {
                 renderer.begin(640, 480);

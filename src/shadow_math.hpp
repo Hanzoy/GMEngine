@@ -21,9 +21,12 @@ inline ShadowProjection shadowProjection(const RenderAssets &assets, const Rende
                 eye[14] + eye[10] * result.extent * .5f};
     const float cx = std::round(dot(center, x) / texel) * texel,
                 cy = std::round(dot(center, y) / texel) * texel;
-    float nearZ = frame.meshes.empty() ? dot(center, z) - result.extent : 1e30f;
-    float farZ = frame.meshes.empty() ? nearZ + 2 * result.extent : -1e30f;
+    float nearZ = 1e30f, farZ = -1e30f;
+    const CookedMaterial fallback;
     for (const auto &draw : frame.meshes) {
+        const auto &material = draw.material == UINT32_MAX ? fallback : assets.materials.at(draw.material);
+        if (material.blend != BlendMode::Opaque || !material.depthWrite)
+            continue;
         const auto &mesh = assets.meshes.at(draw.mesh);
         for (int i = 0; i < 8; ++i) {
             auto p = transformPoint(draw.transform, {i & 1 ? mesh.maximum[0] : mesh.minimum[0],
@@ -32,6 +35,10 @@ inline ShadowProjection shadowProjection(const RenderAssets &assets, const Rende
             nearZ = std::min(nearZ, dot(p, z) - 1);
             farZ = std::max(farZ, dot(p, z) + 1);
         }
+    }
+    if (nearZ > farZ) {
+        nearZ = dot(center, z) - result.extent;
+        farZ = nearZ + 2 * result.extent;
     }
     for (int i = 0; i < 3; ++i)
         result.origin[i] = x[i] * cx + y[i] * cy + z[i] * (nearZ + farZ) * .5f;

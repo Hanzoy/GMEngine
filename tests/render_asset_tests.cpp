@@ -67,6 +67,18 @@ int main(int argc, char **argv) {
             }
         check(lodepng::encode((root / "gradient.png").string(), image.rgba, 32, 32) == 0,
               "PNG fixture write");
+        {
+            std::set<std::filesystem::path> dependencies;
+            for (size_t i = 0; i < gm::RenderDependencyLimit - 1; ++i)
+                dependencies.insert(root / ("known-dependency-" + std::to_string(i)));
+            gm::renderDependencies(root, "gradient.png", dependencies);
+            gm::renderDependencies(root, "gradient.png", dependencies);
+            check(dependencies.size() == gm::RenderDependencyLimit,
+                  "Large dependency set or duplicate lookup rejected");
+            std::filesystem::copy_file(root / "gradient.png", root / "dependency.png",
+                                       std::filesystem::copy_options::overwrite_existing);
+            rejects([&] { gm::renderDependencies(root, "dependency.png", dependencies); });
+        }
         gm::RenderAssets bank;
         bank.textures.push_back(gm::cookTexture(image, {}));
         check(bank.textures[0].levels == 6 && bank.textures[0].variants.size() == 4,

@@ -98,7 +98,7 @@ void updateMeshBounds(CookedMesh &mesh) {
     }
 }
 void validateRenderAssets(const RenderAssets &a) {
-    require(a.textures.size() <= 512 && a.meshes.size() <= 1024 && a.materials.size() <= 4096 &&
+    require(a.textures.size() <= RenderTextureLimit && a.meshes.size() <= RenderMeshLimit && a.materials.size() <= 4096 &&
                 a.shaders.size() <= 128,
             "Too many render resources");
     uint64_t bytes = 0;
@@ -251,7 +251,7 @@ RenderAssets decodeRenderAssets(std::span<const uint8_t> bytes) {
     require(r.u32() == 1, "Unsupported render bank version");
     require(r.u32() == checksum(bytes.subspan(12)), "Render bank checksum mismatch");
     RenderAssets a;
-    auto count = r.count(512);
+    auto count = r.count(RenderTextureLimit);
     for (uint32_t i = 0; i < count; ++i) {
         CookedTexture t;
         t.width = r.u32();
@@ -269,7 +269,7 @@ RenderAssets decodeRenderAssets(std::span<const uint8_t> bytes) {
         }
         a.textures.push_back(std::move(t));
     }
-    count = r.count(1024);
+    count = r.count(RenderMeshLimit);
     for (uint32_t i = 0; i < count; ++i) {
         CookedMesh m;
         for (auto &v : m.minimum)
