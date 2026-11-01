@@ -1,5 +1,6 @@
 #pragma once
 #include "render_math.hpp"
+#include "resource_limits.hpp"
 #include <span>
 #include <string>
 #include <vector>

@@ -227,7 +227,9 @@ struct WorldRenderer::Impl {
                     break;
             }
             if (!chosen)
-                throw std::runtime_error("No supported texture variant for this GPU; include rgba8 fallback");
+                throw std::runtime_error("No supported variant for material texture " +
+                    std::to_string(textures.size()) + " (" + std::to_string(t.width) + "x" +
+                    std::to_string(t.height) + "); include rgba8 fallback for this GPU/dimension");
             auto h = bgfx::createTexture2D(uint16_t(t.width), uint16_t(t.height), t.levels > 1, 1,
                                            format(chosen->format), flags,
                                            bgfx::copy(chosen->bytes.data(), uint32_t(chosen->bytes.size())));

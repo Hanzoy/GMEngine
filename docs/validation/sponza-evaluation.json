@@ -1,0 +1,253 @@
+{
+  "date": "2026-11-01",
+  "asset": "Intel Sponza 2022 base",
+  "download": {
+    "source": "https://www.intel.com/content/www/us/en/developer/topic-technology/graphics-research/samples.html",
+    "url": "https://cdrdv2.intel.com/v1/dl/getContent/830833",
+    "bytes": 3987608266,
+    "sha256": "b8bb853884ab1566b3beb35666bd09882a4e0dc16661e4684e103792cf0229b9"
+  },
+  "triangles": 3747018,
+  "meshPrimitives": 405,
+  "sourceTextureCount": 72,
+  "sourceTextureResolution": [
+    4096,
+    4096
+  ],
+  "decimated": false,
+  "runtime": "Windows D3D11",
+  "gpu": "NVIDIA GeForce RTX 4090 D",
+  "renderResourceBudgetMiB": 2048,
+  "compiledSceneBytes": 1720635835,
+  "packagedSceneBytes": 1720630521,
+  "projectBytes": 9330607086,
+  "referenceBytes": 6674379817,
+  "packageBytes": 3444489474,
+  "build": {
+    "command": [
+      "D:/Demo/GMEngineApp/bin/gmctl.exe",
+      "--project",
+      "D:/Demo/GMEngineGame/projects/SponzaGallery/game.gmproject"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 168.23552880017087,
+    "processPeakWorkingSetBytes": 6907305984,
+    "processPeakCommitBytes": 6931664896,
+    "includesChildren": false
+  },
+  "loadCheck": {
+    "command": [
+      "D:/Demo/GMEngineGame/projects/SponzaGallery/dist/gm_player.exe",
+      "--check"
+    ],
+    "exitCode": 0,
+    "wallSeconds": 5.019944200059399,
+    "processPeakWorkingSetBytes": 3451777024,
+    "processPeakCommitBytes": 3450441728,
+    "includesChildren": false
+  },
+  "captures": {
+    "1080p": {
+      "resolution": [
+        1920,
+        1080
+      ],
+      "vsync": false,
+      "fixedDt": 0.016666666666666666,
+      "warmup": 60,
+      "requestedSamples": 240,
+      "vendorId": 4318,
+      "deviceId": 9861,
+      "simulation": {
+        "samples": 240,
+        "p50Ms": 0.1062,
+        "p95Ms": 0.1573,
+        "maxMs": 0.4118
+      },
+      "frontend": {
+        "samples": 240,
+        "p50Ms": 0.3587,
+        "p95Ms": 0.4842,
+        "maxMs": 0.6422
+      },
+      "gpu": {
+        "samples": 218,
+        "p50Ms": 0.349184,
+        "p95Ms": 0.519168,
+        "maxMs": 1.444864
+      },
+      "frameWall": {
+        "samples": 240,
+        "p50Ms": 0.4808,
+        "p95Ms": 0.6737,
+        "maxMs": 0.943
+      },
+      "gpuNote": "Delayed unique GPU samples; not paired with CPU frame timings. Hidden surface; not a displayed FPS measurement.",
+      "stats": {
+        "available": true,
+        "frame": 300,
+        "backend": "Direct3D 11",
+        "frontendMs": 0.3466,
+        "submitWaitMs": 0.0035,
+        "renderThreadMs": 0.1036,
+        "gpuMs": 0.339968,
+        "gpuFrame": 301,
+        "gpuResultsDelayed": true,
+        "waitRenderMs": 0.0004,
+        "waitSubmitMs": 0.3244,
+        "drawCalls": 288,
+        "backendDraws": 290,
+        "quads": 0,
+        "totalMeshes": 405,
+        "visibleMeshes": 284,
+        "meshDraws": 284,
+        "instances": 0,
+        "triangles": 2693933,
+        "postPasses": 4,
+        "compressedTextures": 72,
+        "mipLevels": 938,
+        "meshBytes": 109942648,
+        "materialTextureBytes": 1610614664,
+        "targetBytes": 33177600,
+        "hdr": true,
+        "totalSprites": 0,
+        "spriteCandidates": 0,
+        "visibleSprites": 0,
+        "submittedSprites": 0,
+        "visibleBlocks": 0,
+        "imageUploads": 0,
+        "imageCacheHits": 0,
+        "imageEntries": 0,
+        "imageTextures": 0,
+        "imageAtlasPages": 0,
+        "imageTextureBytes": 0,
+        "imageEvictions": 0,
+        "textUploads": 0,
+        "textEvictions": 0,
+        "textTextureBytes": 0,
+        "textCacheEntries": 0,
+        "textAtlasPages": 0,
+        "geometryBuilds": 0,
+        "geometryEntries": 1,
+        "cachedDraws": 0,
+        "geometryBytes": 0,
+        "textureUploadBytes": 0,
+        "vertexUploadBytes": 304,
+        "adapterMemoryUsedBytes": 4615323648,
+        "backendTextureBytes": 1610663832
+      }
+    },
+    "4k": {
+      "resolution": [
+        3840,
+        2160
+      ],
+      "vsync": false,
+      "fixedDt": 0.016666666666666666,
+      "warmup": 60,
+      "requestedSamples": 240,
+      "vendorId": 4318,
+      "deviceId": 9861,
+      "simulation": {
+        "samples": 240,
+        "p50Ms": 0.1162,
+        "p95Ms": 0.1693,
+        "maxMs": 0.2745
+      },
+      "frontend": {
+        "samples": 240,
+        "p50Ms": 0.37,
+        "p95Ms": 0.4878,
+        "maxMs": 0.6283
+      },
+      "gpu": {
+        "samples": 240,
+        "p50Ms": 0.607232,
+        "p95Ms": 1.453056,
+        "maxMs": 2.7392
+      },
+      "frameWall": {
+        "samples": 240,
+        "p50Ms": 0.6334,
+        "p95Ms": 1.5152,
+        "maxMs": 2.7064
+      },
+      "gpuNote": "Delayed unique GPU samples; not paired with CPU frame timings. Hidden surface; not a displayed FPS measurement.",
+      "stats": {
+        "available": true,
+        "frame": 300,
+        "backend": "Direct3D 11",
+        "frontendMs": 0.374,
+        "submitWaitMs": 0.0033,
+        "renderThreadMs": 0.1027,
+        "gpuMs": 0.601088,
+        "gpuFrame": 298,
+        "gpuResultsDelayed": true,
+        "waitRenderMs": 0.0008,
+        "waitSubmitMs": 0.0005,
+        "drawCalls": 288,
+        "backendDraws": 290,
+        "quads": 0,
+        "totalMeshes": 405,
+        "visibleMeshes": 284,
+        "meshDraws": 284,
+        "instances": 0,
+        "triangles": 2693933,
+        "postPasses": 4,
+        "compressedTextures": 72,
+        "mipLevels": 938,
+        "meshBytes": 109942648,
+        "materialTextureBytes": 1610614664,
+        "targetBytes": 132710400,
+        "hdr": true,
+        "totalSprites": 0,
+        "spriteCandidates": 0,
+        "visibleSprites": 0,
+        "submittedSprites": 0,
+        "visibleBlocks": 0,
+        "imageUploads": 0,
+        "imageCacheHits": 0,
+        "imageEntries": 0,
+        "imageTextures": 0,
+        "imageAtlasPages": 0,
+        "imageTextureBytes": 0,
+        "imageEvictions": 0,
+        "textUploads": 0,
+        "textEvictions": 0,
+        "textTextureBytes": 0,
+        "textCacheEntries": 0,
+        "textAtlasPages": 0,
+        "geometryBuilds": 0,
+        "geometryEntries": 1,
+        "cachedDraws": 0,
+        "geometryBytes": 0,
+        "textureUploadBytes": 0,
+        "vertexUploadBytes": 304,
+        "adapterMemoryUsedBytes": 4776280064,
+        "backendTextureBytes": 1610663832
+      }
+    }
+  },
+  "checks": {
+    "W_Shift_changes_view": true,
+    "R_exactly_restores_view": true,
+    "F1_hides_HUD": true,
+    "quality_reduces_target_bytes": true,
+    "quality_disables_bloom_passes": true,
+    "all_405_meshes_loaded": true,
+    "all_72_4k_compressed_textures_uploaded": true
+  },
+  "engineContractsPassed": 20,
+  "projectContractsPassed": 15,
+  "nativeWindowVisuallyVerified": true,
+  "nativeHKeyVisuallyVerified": true,
+  "nativeF1Note": "Automation F1 was not observed in module input; H fallback verified in actual Player. Headless F1 passed. No claim about cause.",
+  "runtimeModuleSha256": "c85c16ff00bf1bc65083cb63df6564de67880ca9f91835d41322fb58683d1853",
+  "limitations": [
+    "Resident assets, no streaming",
+    "No shadows, IBL or GI",
+    "Offline glTF bridge; no native glTF importer",
+    "Only Windows BC3 package validated",
+    "Source license header and CC-BY text differ; local evaluation only"
+  ]
+}

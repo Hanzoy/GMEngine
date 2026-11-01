@@ -73,8 +73,10 @@ RenderCompiler::RenderCompiler(RenderAssets &assets) : assets_(assets) {
             addBytes(v.vertex.size() + v.fragment.size());
 }
 void RenderCompiler::addBytes(uint64_t bytes) {
-    if (bytes > 128ull * 1024 * 1024 - payloadBytes_)
-        throw std::runtime_error("Render resources exceed 128 MiB");
+    if (!renderPayloadFits(payloadBytes_, bytes))
+        throw std::runtime_error("Render resources exceed configured " +
+                                 std::to_string(RenderResourceBudget / (1024 * 1024)) +
+                                 " MiB ceiling (GM_RENDER_RESOURCE_BUDGET_MIB)");
     payloadBytes_ += bytes;
 }
 CookedMesh importObj(const std::filesystem::path &path) {

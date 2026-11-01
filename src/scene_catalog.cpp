@@ -89,7 +89,7 @@ void SceneLoader::request(const std::string &id) {
         std::ifstream in(path, std::ios::binary | std::ios::ate);
         check(bool(in), "Cannot open scene");
         auto size = in.tellg();
-        check(size >= 0 && size <= 192 * 1024 * 1024 + 12, "Invalid scene file size");
+        check(size >= 0 && uint64_t(size) <= SceneBinaryBudget + 12, "Invalid scene file size");
         std::vector<uint8_t> bytes(static_cast<size_t>(size));
         in.seekg(0);
         for (size_t offset = 0; offset < bytes.size();) {

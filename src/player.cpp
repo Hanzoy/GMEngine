@@ -13,9 +13,9 @@
 namespace {
 class Player {
 public:
-    Player(HWND window,const std::filesystem::path& path):window_(window),path_(path) {
+    Player(HWND window,const std::filesystem::path& path,std::unique_ptr<gm::CompiledScene> compiled):window_(window),path_(path) {
         RECT area;GetClientRect(window_,&area);renderer_=std::make_unique<gm::Renderer>(window_,area.right,area.bottom);
-        if(path.extension()==".gmscene") {scene_=std::make_unique<gm::SceneRuntime>(gm::loadScene(path),path.parent_path());sceneView_=std::make_unique<gm::SceneView>(*renderer_);ImmAssociateContextEx(window_,nullptr,0);}else document_=std::make_unique<gm::RuntimeDocument>(path);
+        if(compiled) {scene_=std::make_unique<gm::SceneRuntime>(std::move(*compiled),path.parent_path());sceneView_=std::make_unique<gm::SceneView>(*renderer_);ImmAssociateContextEx(window_,nullptr,0);}else document_=std::make_unique<gm::RuntimeDocument>(path);
         auto catalog=path.parent_path()/"scenes.gmcatalog";if(scene_&&std::filesystem::exists(catalog))loader_=std::make_unique<gm::SceneLoader>(catalog);
     }
     ~Player(){sceneView_.reset();view_.clear(*renderer_);}
@@ -141,12 +141,13 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,PWSTR,int) {
         WNDCLASSW cls{};cls.lpfnWndProc=windowProc;cls.hInstance=instance;cls.lpszClassName=L"GMEnginePlayer";
         cls.hCursor=LoadCursor(nullptr,IDC_ARROW);cls.hIcon=LoadIcon(nullptr,IDI_APPLICATION);
         if(!RegisterClassW(&cls)) throw std::runtime_error("Cannot register player window");
-        RECT work;SystemParametersInfoW(SPI_GETWORKAREA,0,&work,0);int desiredWidth=1280,desiredHeight=720;if(project.extension()==".gmscene"){auto asset=gm::loadScene(project);float fit=std::min(1.f,std::min(float(work.right-work.left-64)/asset.width,float(work.bottom-work.top-80)/asset.height));desiredWidth=int(asset.width*fit);desiredHeight=int(asset.height*fit);}
+        std::unique_ptr<gm::CompiledScene> initialScene;
+        RECT work;SystemParametersInfoW(SPI_GETWORKAREA,0,&work,0);int desiredWidth=1280,desiredHeight=720;if(project.extension()==".gmscene"){initialScene=std::make_unique<gm::CompiledScene>(gm::loadScene(project));const auto& asset=*initialScene;float fit=std::min(1.f,std::min(float(work.right-work.left-64)/asset.width,float(work.bottom-work.top-80)/asset.height));desiredWidth=int(asset.width*fit);desiredHeight=int(asset.height*fit);}
         RECT bounds{0,0,desiredWidth,desiredHeight};AdjustWindowRect(&bounds,WS_OVERLAPPEDWINDOW,FALSE);
         const auto title=project.filename().wstring()+L" — GM Engine Player";
         HWND window=CreateWindowExW(0,cls.lpszClassName,title.c_str(),WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,bounds.right-bounds.left,bounds.bottom-bounds.top,nullptr,nullptr,instance,nullptr);
         if(!window) throw std::runtime_error("Cannot create player window");
-        Player instancePlayer(window,project);player=&instancePlayer;ShowWindow(window,SW_SHOW);UpdateWindow(window);
+        Player instancePlayer(window,project,std::move(initialScene));player=&instancePlayer;ShowWindow(window,SW_SHOW);UpdateWindow(window);
         MSG msg{};bool running=true;
         while(running) {
             while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)) {

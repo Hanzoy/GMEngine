@@ -23,6 +23,7 @@ target_compile_definitions(gm_flecs PUBLIC FLECS_CUSTOM_BUILD FLECS_CPP FLECS_SY
 add_library(gm_runtime STATIC src/compiled_ui.cpp src/runtime_document.cpp src/runtime_layout.cpp)
 target_include_directories(gm_runtime PUBLIC src)
 add_library(gm_render_assets STATIC src/render_assets.cpp)
+target_compile_definitions(gm_render_assets PUBLIC GM_RENDER_RESOURCE_BUDGET_MIB=${GM_RENDER_RESOURCE_BUDGET_MIB})
 target_include_directories(gm_render_assets PUBLIC src sdk/include)
 add_library(gm_scene STATIC src/scene.cpp src/scene_binary.cpp src/scene_catalog.cpp src/checkpoint.cpp)
 target_link_libraries(gm_scene PUBLIC gm_runtime gm_registry gm_tasks gm_render_assets PRIVATE gm_flecs)

@@ -8,7 +8,7 @@ void require(bool ok, const char *message) {
     if (!ok)
         throw std::runtime_error(message);
 }
-constexpr uint64_t Budget = 128ull * 1024 * 1024;
+constexpr uint64_t Budget = RenderResourceBudget;
 void put(std::vector<uint8_t> &out, uint32_t value) {
     for (int i = 0; i < 4; ++i)
         out.push_back(uint8_t(value >> (i * 8)));
@@ -170,7 +170,7 @@ void validateRenderAssets(const RenderAssets &a) {
                         s.stage < 8 && stages.insert(s.stage).second && s.texture < a.textures.size(),
                     "Invalid material texture binding");
     }
-    require(bytes <= Budget, "Render resource bank exceeds 128 MiB");
+    require(bytes <= Budget, "Render resource bank exceeds configured ceiling");
 }
 std::vector<uint8_t> encodeRenderAssets(const RenderAssets &a) {
     validateRenderAssets(a);
@@ -229,7 +229,7 @@ std::vector<uint8_t> encodeRenderAssets(const RenderAssets &a) {
             put(p, s.stage);
         }
     }
-    require(p.size() <= Budget, "Encoded render bank exceeds 128 MiB");
+    require(p.size() <= Budget, "Encoded render bank exceeds configured ceiling");
     std::vector<uint8_t> out = {'G', 'M', 'R', 'A'};
     put(out, 1);
     put(out, checksum(p));
