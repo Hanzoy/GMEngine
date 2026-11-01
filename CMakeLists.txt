@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(GMEngine VERSION 0.12.1 LANGUAGES C CXX)
+project(GMEngine VERSION 0.12.2 LANGUAGES C CXX)
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR OR CMAKE_BINARY_DIR MATCHES "^${CMAKE_SOURCE_DIR}/")
   message(FATAL_ERROR "Keep build artifacts outside the source tree; use -B ../GMEngineBuild/build")
 endif()

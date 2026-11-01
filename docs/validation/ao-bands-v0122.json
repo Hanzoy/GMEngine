@@ -1,0 +1,71 @@
+{
+  "version": "0.12.2",
+  "date": "2026-11-02",
+  "backend": "Direct3D 11",
+  "regression": {
+    "oldShaderExitCode": 1,
+    "oldFirstCaseMaxDifference": 13,
+    "newCases": [
+      {
+        "pitch": 22,
+        "renderScale": 1,
+        "maxDifference": 0
+      },
+      {
+        "pitch": 22,
+        "renderScale": 0.73,
+        "maxDifference": 0
+      },
+      {
+        "pitch": 40,
+        "renderScale": 1,
+        "maxDifference": 0
+      },
+      {
+        "pitch": 40,
+        "renderScale": 0.73,
+        "maxDifference": 0
+      },
+      {
+        "pitch": 65,
+        "renderScale": 1,
+        "maxDifference": 0
+      },
+      {
+        "pitch": 65,
+        "renderScale": 0.73,
+        "maxDifference": 0
+      }
+    ]
+  },
+  "ctest": {
+    "passed": 20,
+    "failed": 0,
+    "seconds": 7.34
+  },
+  "shaderCompilation": [
+    "DXBC s_5_0",
+    "ESSL 300_es"
+  ],
+  "resourceComparison": {
+    "drawCalls": {
+      "before": 283,
+      "after": 283
+    },
+    "qualityBytes": {
+      "before": 37324800,
+      "after": 37324800
+    },
+    "targetBytes": {
+      "before": 94619648,
+      "after": 94619648
+    },
+    "aoPasses": {
+      "before": 1,
+      "after": 1
+    }
+  },
+  "playerCheckExitCode": 0,
+  "evidenceDirectory": "D:\\Demo\\GMEngineGame\\projects\\SponzaGallery\\docs\\screen-bands",
+  "packagedPlayerSha256": "ca1fe43710d9408bd873b3c5ba6088e22f7ccadd99155ffeeaecc88f0c6ba7c5"
+}

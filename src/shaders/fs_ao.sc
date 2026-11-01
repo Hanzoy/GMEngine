@@ -3,7 +3,10 @@ $input v_texcoord0
 #include "gm_screen.sh"
 uniform vec4 u_ao; // world radius, intensity, angle bias
 void main() {
-    vec2 uv=v_texcoord0;
+    // AO runs at half resolution. Point-sampled depth belongs to a full-resolution
+    // texel center, not to the arbitrary UV used to request it. Mixing those two
+    // positions bends reconstructed flat surfaces into screen-aligned dark bands.
+    vec2 uv=(floor(v_texcoord0/u_screenSize.xy)+.5)*u_screenSize.xy;
     float depth=texture2D(s_depth,uv).x;
     if(depth>=.999999){gl_FragColor=vec4_splat(1.0);return;}
     vec3 p=gmViewPosition(uv,depth);
@@ -28,6 +31,7 @@ void main() {
             float t=float(j)/4.0;
             vec2 sampleUv=uv+ray*radius*t*t;
             if(min(sampleUv.x,sampleUv.y)<=0.0||max(sampleUv.x,sampleUv.y)>=1.0)continue;
+            sampleUv=(floor(sampleUv/u_screenSize.xy)+.5)*u_screenSize.xy;
             float sd=texture2D(s_depth,sampleUv).x;
             if(sd>=.999999)continue;
             vec3 delta=gmViewPosition(sampleUv,sd)-p;

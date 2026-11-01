@@ -70,4 +70,35 @@ snapshot(draw);
 check(renderer.stats().qualityBytes == 0 && renderer.stats().temporalPasses == 0 &&
           renderer.stats().aoPasses == 0,
       "Disabled quality effects retained targets");
+// An isolated flat plane cannot occlude itself. Half-resolution AO used to
+// reconstruct point-sampled depths at unsnapped UVs, creating horizontal bands.
+frame.quality = {};
+frame.quality.temporalAA = 0;
+frame.light.intensity = 0;
+frame.light.ambient = .4f;
+frame.meshes.resize(1);
+frame.meshes[0].transform = gm::local3D({0, 0, 0, 0, 0, 0, 200, 1, 200});
+frame.post.toneMapping = 0;
+frame.post.gamma = 1;
+frame.post.bloom = 0;
+frame.lens.nearPlane = .1f;
+frame.lens.farPlane = 2000;
+for (float pitch : {22.f, 40.f, 65.f}) {
+    for (float scale : {1.f, .73f}) {
+        frame.camera = gm::local3D({0, 4.5f, -8, pitch, 25});
+        frame.post.renderScale = scale;
+        frame.quality.enabled = 0;
+        auto cleanPlane = snapshot(draw);
+        frame.quality.enabled = 1;
+        auto aoPlane = snapshot(draw);
+        int worst = 0;
+        for (int y = 160; y < 440; ++y)
+            for (int x = 80; x < 560; ++x) {
+                auto i = (y * 640 + x) * 4;
+                worst = std::max(worst, std::abs(int(cleanPlane[i]) - int(aoPlane[i])));
+            }
+        std::cout << "AO flat plane pitch=" << pitch << " scale=" << scale << " max error=" << worst << '\n';
+        check(worst <= 1, "AO added false occlusion bands to an isolated flat plane");
+    }
+}
 frame.quality = {0};
