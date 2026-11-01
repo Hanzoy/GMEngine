@@ -27,7 +27,7 @@ try {
     $module=Join-Path $project $data.module
     Check ((Test-Path -LiteralPath $module) -and $data.module -eq 'bin/windows-x64/Game.dll') 'New project contains its ready-to-run native module'
     $states=Send @(@{op='project.query'},@{op='set';id='player';property='game.Mover.speed';value=150},@{op='save'},@{op='preview.run'},@{op='runtime.step';frames=6;x=1},@{op='preview.stop'},@{op='project.package'})
-    Check (@($states[0].result.components | Where-Object { $_.type -eq "MeshRenderer" }).Count -eq 1 -and $states[0].result.components.Count -eq 17 -and [Math]::Abs($states[4].entities[0].x-$states[3].entities[0].x-15) -lt .02) 'Edit, save and simulate the template without invoking a compiler'
+    Check (@($states[0].result.components | Where-Object { $_.type -eq "MeshRenderer" }).Count -eq 1 -and $states[0].result.components.Count -eq 18 -and [Math]::Abs($states[4].entities[0].x-$states[3].entities[0].x-15) -lt .02) 'Edit, save and simulate the template without invoking a compiler'
     Check (-not (Test-Path -LiteralPath "$project/build/CMakeCache.txt")) 'Opening and running do not configure a native build'
     $player=Start-Process -FilePath $states[6].result.executable -ArgumentList '--check' -WorkingDirectory $states[6].result.directory -WindowStyle Hidden -Wait -PassThru
     Check ($player.ExitCode -eq 0) 'Package and validate the game without CMake or Visual Studio on PATH'

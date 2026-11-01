@@ -140,7 +140,7 @@ Json buildProjectAssets(const GameProject &p) {
                 dependency(uiPath.parent_path(), value);
         }
         Json signature = {
-            {"compiler", 12}, {"renderResourceBudget", RenderResourceBudget},
+            {"compiler", 13}, {"renderResourceBudget", RenderResourceBudget},
             {"schema", gameRegistry()->fingerprint()}, {"dependencies", Json::object()}};
         for (const auto &file : dependencies)
             signature["dependencies"][text(file.lexically_relative(p.root))] = hashFile(file);

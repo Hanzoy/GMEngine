@@ -16,7 +16,7 @@ Copy-Item -LiteralPath $projectSample -Destination $unicodeUi
 $openedUi=Project-Send $projectManifest @(@{op='file.open';path=$unicodeUi},@{op='query'})
 Project-Check ($openedUi[0].result.path.Replace('\','/') -ceq $unicodeUi.Replace('\','/')) 'CLI returns Unicode file paths as UTF-8'
 $initial=Project-Send $projectManifest @(@{op='project.query'})
-Project-Check ($initial.result.components.Count -eq 17 -and $initial.result.systems.Count -eq 3) 'Precompiled template module registers without requiring a build'
+Project-Check ($initial.result.components.Count -eq 18 -and $initial.result.systems.Count -eq 3) 'Precompiled template module registers without requiring a build'
 $template=Project-Send $projectManifest @(@{op='preview.run'},@{op='runtime.step';frames=6;x=1},@{op='preview.stop'})
 $originalX=$template[0].entities[0].x
 Project-Check ([Math]::Abs($template[1].entities[0].x-$originalX-10) -lt .02) 'Template native System drives engine movement'
@@ -33,7 +33,7 @@ $scriptText=$scriptText.Replace('nullptr,nullptr,move,access,2}}','nullptr,nullp
 $scriptText=$scriptText.Replace('components,1,systems,1','components,2,systems,2')
 [IO.File]::WriteAllText($scriptPath,$scriptText,[Text.UTF8Encoding]::new($false))
 $extended=Project-Send $projectManifest @(@{op='project.build'},@{op='project.query'})
-Project-Check ($extended[1].result.components.Count -eq 18 -and $extended[1].result.systems.Count -eq 4) 'New project component and System register without engine changes'
+Project-Check ($extended[1].result.components.Count -eq 19 -and $extended[1].result.systems.Count -eq 4) 'New project component and System register without engine changes'
 $scene=Get-Content (Join-Path $projectFixture 'assets/main.scene.json') -Raw | ConvertFrom-Json
 $entityId=$scene.entities[0].id
 $edits=Project-Send $projectManifest @(@{op='component.add';id=$entityId;type='game.Clock'},@{op='set';id=$entityId;property='game.Mover.speed';value=150},@{op='save'},@{op='preview.run'},@{op='runtime.step';frames=12;x=1},@{op='preview.stop'})

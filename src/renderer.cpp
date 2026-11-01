@@ -62,7 +62,7 @@ std::string utf8(const std::wstring &text) {
 #endif
 }
 Renderer::Renderer(void *window, uint32_t width, uint32_t height, bgfx::CallbackI *callback, bool vsync)
-    : width_(width), height_(height), resetFlags_(vsync?BGFX_RESET_VSYNC:0) {
+    : width_(width), height_(height), resetFlags_((vsync ? BGFX_RESET_VSYNC : 0) | BGFX_RESET_MAXANISOTROPY) {
     bgfx::Init init;
 #ifdef _WIN32
     init.type = bgfx::RendererType::Direct3D11;

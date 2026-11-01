@@ -57,4 +57,10 @@ struct IndirectLight {
     int32_t resolution = 256, samples = 32;
     float radius = 5, intensity = 1;
 };
+// Optional forward-renderer quality settings. Absent components preserve existing scenes.
+struct RenderQuality {
+    static constexpr const char *gm_name = "RenderQuality";
+    uint32_t enabled = 1, temporalAA = 1, ambientOcclusion = 1;
+    float historyWeight = .9f, aoRadius = 1.f, aoIntensity = 1.5f, aoBias = .05f;
+};
 } // namespace gm::sdk

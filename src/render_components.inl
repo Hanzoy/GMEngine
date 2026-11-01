@@ -97,3 +97,10 @@ bool lightingComponent(sdk::TypeId type) {
     return type == id(ShadowSettings::gm_name) || type == id(EnvironmentLight::gm_name) ||
            type == id(IndirectLight::gm_name);
 }
+const Field qualityFields[] = {GM_BOOL(RenderQuality, enabled, "启用", 1),
+                               GM_BOOL(RenderQuality, temporalAA, "时间抗锯齿", 1),
+                               GM_BOOL(RenderQuality, ambientOcclusion, "屏幕空间环境遮挡", 1),
+                               GM_FLOAT(RenderQuality, historyWeight, "历史权重", .9, 0, .96),
+                               GM_FLOAT(RenderQuality, aoRadius, "遮挡半径（米）", 1, .05, 5),
+                               GM_FLOAT(RenderQuality, aoIntensity, "遮挡强度", 1.5, 0, 4),
+                               GM_FLOAT(RenderQuality, aoBias, "遮挡偏移", .05, 0, .5)};

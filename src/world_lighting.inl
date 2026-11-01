@@ -185,7 +185,7 @@ void lightingPasses(const RenderAssets &assets, const RenderFrame &frame, const 
     if (!shadowActive && !rsmActive)
         return;
     lightProjection = shadowProjection(assets, frame, camera ? camera->transform : frame.camera,
-                                       std::max(shadowSize, rsmSize), bgfx::getCaps()->homogeneousDepth);
+        (shadowSize && rsmSize ? std::min(shadowSize, rsmSize) : std::max(shadowSize, rsmSize)), bgfx::getCaps()->homogeneousDepth);
     if (lightingUnchanged(assets, frame)) {
         ++r.frameStats().lightingCacheHits;
         return;
@@ -277,7 +277,12 @@ bool sky(const RenderAssets &assets, const RenderFrame &frame, const ViewCamera3
     vec("u_gmSkyRight", {eye[0] * scale * width / height, eye[1] * scale * width / height,
                          eye[2] * scale * width / height, 0});
     vec("u_gmSkyUp", {eye[4] * scale, eye[5] * scale, eye[6] * scale, 0});
-    vec("u_gmSkyForward", {eye[8], eye[9], eye[10], 0});
+    vec("u_gmSkyForward", {eye[8] - eye[0] * scale * width / height * qualityProjection[8] -
+                               eye[4] * scale * qualityProjection[9],
+                           eye[9] - eye[1] * scale * width / height * qualityProjection[8] -
+                               eye[5] * scale * qualityProjection[9],
+                           eye[10] - eye[2] * scale * width / height * qualityProjection[8] -
+                               eye[6] * scale * qualityProjection[9], 0});
     environmentUniforms(assets, frame);
     fullscreen(skyProgram, target, {0, 0, float(width), float(height)}, black, black, false);
     ++r.frameStats().environmentDraws;

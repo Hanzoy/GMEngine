@@ -1,4 +1,4 @@
-// Engine lighting ABI. Stages 0..7 belong to materials, 8..13 to the renderer.
+// Engine lighting ABI. Stages 0..7 belong to materials, 8..14 to the renderer.
 // Include after bgfx_shader.sh; all vectors are world-space, radiance is linear HDR.
 SAMPLER2D(s_gmShadow,8);
 SAMPLER2D(s_gmIrradiance,9);
@@ -6,6 +6,24 @@ SAMPLER2D(s_gmRadiance,10);
 SAMPLER2D(s_gmRsmPosition,11);
 SAMPLER2D(s_gmRsmNormal,12);
 SAMPLER2D(s_gmRsmFlux,13);
+SAMPLER2D(s_gmAmbient,14);
+uniform vec4 u_gmScreen0;
+uniform vec4 u_gmScreen1;
+uniform vec4 u_gmScreen3;
+uniform vec4 u_gmAmbient;
+float gmAmbientOcclusion(vec3 world){
+    if(u_gmAmbient.x<.5)return 1.0;
+    vec4 p=vec4(world,1.0);
+    vec2 xy=vec2(dot(u_gmScreen0,p),dot(u_gmScreen1,p))/max(dot(u_gmScreen3,p),1e-5);
+    return texture2D(s_gmAmbient,xy*vec2(.5,u_gmAmbient.y)+.5).x;
+}
+// Filter the specular lobe over the pixel footprint instead of letting tiny highlights sparkle.
+float gmFilteredRoughness(vec3 normal,float roughness){
+    vec3 dx=dFdx(normal),dy=dFdy(normal);
+    float variance=.25*(dot(dx,dx)+dot(dy,dy));
+    float r2=roughness*roughness;
+    return sqrt(sqrt(clamp(r2*r2+min(2.0*variance,.18),0.000004,1.0)));
+}
 uniform vec4 u_gmLightRow0;
 uniform vec4 u_gmLightRow1;
 uniform vec4 u_gmLightRow2;
@@ -25,9 +43,12 @@ float gmShadow(vec3 world,vec3 normal) {
     if(u_gmShadow.x<.5)return 1.0;
     vec3 p=gmLightCoord(world+normal*u_gmShadow.w);
     if(p.z<=0.0||p.z>=1.0||min(p.x,p.y)<=0.0||max(p.x,p.y)>=1.0)return 1.0;
-    vec3 lightNormal=vec3(dot(normal,normalize(u_gmLightRow0.xyz)),dot(normal,normalize(u_gmLightRow1.xyz)),dot(normal,normalize(u_gmLightRow2.xyz)));
-    float nz=(lightNormal.z<0.0?-1.0:1.0)*max(abs(lightNormal.z),.05);
-    vec2 gradient=-lightNormal.xy/nz*u_gmShadowExtra.y*vec2(1.0,sign(u_gmClipUv.y));
+    // The rasterized receiver plane differs from interpolated smooth vertex normals.
+    // Solve its depth gradient in shadow UV space to avoid triangle-shaped self-shadow acne.
+    vec3 receiver=gmLightCoord(world),dx=dFdx(receiver),dy=dFdy(receiver);
+    float determinant=dx.x*dy.y-dx.y*dy.x;
+    vec2 gradient=abs(determinant)>1e-12?vec2(dx.z*dy.y-dy.z*dx.y,dx.x*dy.z-dy.x*dx.z)/determinant:vec2_splat(0.0);
+    gradient=clamp(gradient,vec2_splat(-50.0),vec2_splat(50.0));
     float bias=u_gmShadow.z+.5*u_gmShadow.y*(abs(gradient.x)+abs(gradient.y));
     float sum=0.0;
     for(int y=-1;y<=1;++y)for(int x=-1;x<=1;++x){
@@ -63,7 +84,8 @@ vec3 gmIndirect(vec3 world,vec3 normal,vec3 base,float metal,float ao) {
     vec2 center=gmLightCoord(world).xy;
     if(min(center.x,center.y)<0.0||max(center.x,center.y)>1.0)return vec3_splat(0.0);
     vec3 result=vec3_splat(0.0);
-    float rotation=fract(sin(dot(floor(world*32.0),vec3(12.9898,37.719,78.233)))*43758.5453)*6.2831853;
+    // Fixed low-discrepancy pattern avoids discontinuous world-voxel random rotations.
+    float rotation=.37;
     for(int i=0;i<64;++i){
         if(float(i)>=u_gmRsm.z)break;
         float radius=sqrt((float(i)+.5)/u_gmRsm.z),angle=float(i)*2.39996323+rotation;

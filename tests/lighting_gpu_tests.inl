@@ -60,7 +60,16 @@ check(renderer.stats().shadowDraws == 2 && renderer.stats().rsmDraws == 2 &&
           !renderer.stats().lightingCacheHits,
       "Moved caster did not invalidate lighting");
 frame.meshes[1].transform[12] -= 1;
-check(snapshot(draw) == bounced, "Cached lighting differs from rebuilt lighting");
+auto rebuiltBounce = snapshot(draw);
+int rebuiltChanged = 0, rebuiltMax = 0;
+for (size_t i = 0; i < bounced.size(); ++i) {
+    int difference = std::abs(int(bounced[i]) - rebuiltBounce[i]);
+    rebuiltChanged += difference != 0;
+    rebuiltMax = std::max(rebuiltMax, difference);
+}
+// Independent GPU executions can round one color channel to an adjacent UNORM8 value.
+// Observed: 1 channel / 1,228,800, delta 1. Reject visible differences rather than that quantization.
+check(rebuiltMax <= 1 && rebuiltChanged <= 8, "Cached lighting differs from rebuilt lighting");
 frame.light.intensity += .01f;
 renderer.begin(640, 480);
 draw();

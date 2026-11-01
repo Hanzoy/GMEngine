@@ -31,6 +31,7 @@ void main() {
     vec3 v=normalize(u_camera.xyz-v_world),l=normalize(-u_lightDirection.xyz),h=normalize(v+l);
     float nl=max(dot(n,l),0.0),nv=max(dot(n,v),0.0001),nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
     float rough=clamp(u_surface.y,0.045,1.0),metal=clamp(u_surface.x,0.0,1.0);
+    rough=gmFilteredRoughness(n,rough);
     float a=rough*rough,a2=a*a,den=nh*nh*(a2-1.0)+1.0;
     float distribution=a2/max(3.14159265*den*den,0.00001);
     float k=(rough+1.0)*(rough+1.0)/8.0;
@@ -39,7 +40,8 @@ void main() {
     vec3 fresnel=f0+(1.0-f0)*pow(1.0-vh,5.0);
     vec3 specular=distribution*geometry*fresnel/max(4.0*nl*nv,0.0001);
     vec3 diffuse=(1.0-fresnel)*(1.0-metal)*base.xyz/3.14159265;
-    vec3 color=(diffuse+specular)*u_lightColor.xyz*nl*gmShadow(v_world,normalize(v_normal))+base.xyz*u_lightColor.w+emission;
-    color+=gmEnvironment(n,v,base.xyz,metal,rough,1.0)+gmIndirect(v_world,n,base.xyz,metal,1.0);
+    float ao=gmAmbientOcclusion(v_world);
+    vec3 color=(diffuse+specular)*u_lightColor.xyz*nl*gmShadow(v_world,normalize(v_normal))+base.xyz*u_lightColor.w*ao+emission;
+    color+=gmEnvironment(n,v,base.xyz,metal,rough,ao)+gmIndirect(v_world,n,base.xyz,metal,ao);
     gl_FragColor=vec4(color,base.a);
 }

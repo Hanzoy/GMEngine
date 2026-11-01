@@ -10,6 +10,7 @@ rendering_.post = {0};
 rendering_.shadows = {0};
 rendering_.environment = {0};
 rendering_.indirect = {0};
+rendering_.quality = {0};
 impl_->context().each<const Impl::EntityIndex, const sdk::WorldTransform3D, const sdk::MeshRenderer>(
     [&](sdk::Entity, const Impl::EntityIndex &index, const sdk::WorldTransform3D &transform,
         const sdk::MeshRenderer &mesh) {
@@ -66,3 +67,4 @@ auto lighting = [&]<class T>(T &output) {
 lighting(rendering_.shadows);
 lighting(rendering_.environment);
 lighting(rendering_.indirect);
+lighting(rendering_.quality);

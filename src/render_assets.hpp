@@ -68,6 +68,7 @@ struct RenderFrame {
     sdk::ShadowSettings shadows{0};
     sdk::EnvironmentLight environment{0};
     sdk::IndirectLight indirect{0};
+    sdk::RenderQuality quality{0};
 };
 // Optional view-owned camera. Never writes to the game World or copies its mesh list.
 struct ViewCamera3D {

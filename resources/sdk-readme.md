@@ -1,4 +1,6 @@
-# GM Engine 0.11.0
+# GM Engine 0.12.0
+
+0.12.0 增加可选 TAA、屏幕空间环境遮挡、高光过滤与各向异性采样，稳定运动中的 RSM 采样并改进阴影接收面坡度计算。详见 [画质与闪烁修复](docs/render-quality-v012.md)。
 
 0.11.0 增加方向光 PCF 阴影、HDR 环境照明/反射、RSM 一次反弹光及静态光照缓存。通过 ShadowSettings / EnvironmentLight / IndirectLight 组件在编辑器或 CLI 中配置，详见 `docs/lighting-v011.md`。SDK ABI 保持 10。
 

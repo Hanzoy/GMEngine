@@ -46,6 +46,7 @@ void SceneView::render(SceneRuntime &scene, Rect viewport, bool showHud, const V
     }
     viewport_ = viewport;
     const auto &asset = scene.asset();
+    world_.temporalAllowed(editorCamera || scene.sprites().empty());
     if (editorCamera) {
         // Scene navigation uses the whole viewport, independently of game resolution and HUD.
         if (world_.begin(asset.rendering, scene.rendering(), viewport, asset.background, editorCamera))

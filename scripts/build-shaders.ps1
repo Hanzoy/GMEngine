@@ -20,6 +20,9 @@ $shaders=@(
     @('vs_post','vertex','varying_post.def.sc'),
     @('fs_bloom','fragment','varying_post.def.sc'),
     @('fs_blur','fragment','varying_post.def.sc'),
+    @('fs_ao','fragment','varying_post.def.sc'),
+    @('fs_ao_blur','fragment','varying_post.def.sc'),
+    @('fs_temporal','fragment','varying_post.def.sc'),
     @('fs_post','fragment','varying_post.def.sc')
 )
 foreach($shader in $shaders){foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){

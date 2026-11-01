@@ -25,6 +25,12 @@
 #include "shaders/fs_rsm_essl.bin.h"
 #include "shaders/fs_sky_dxbc.bin.h"
 #include "shaders/fs_sky_essl.bin.h"
+#include "shaders/fs_ao_dxbc.bin.h"
+#include "shaders/fs_ao_essl.bin.h"
+#include "shaders/fs_ao_blur_dxbc.bin.h"
+#include "shaders/fs_ao_blur_essl.bin.h"
+#include "shaders/fs_temporal_dxbc.bin.h"
+#include "shaders/fs_temporal_essl.bin.h"
 namespace gm {
 namespace {
 const bgfx::EmbeddedShader shaders[] = {
@@ -67,6 +73,18 @@ const bgfx::EmbeddedShader shaders[] = {
     {"fs_sky",
      {{bgfx::RendererType::Direct3D11, fs_sky_dxbc, sizeof(fs_sky_dxbc)},
       {bgfx::RendererType::OpenGLES, fs_sky_essl, sizeof(fs_sky_essl)},
+      {bgfx::RendererType::Count, nullptr, 0}}},
+    {"fs_ao",
+     {{bgfx::RendererType::Direct3D11, fs_ao_dxbc, sizeof(fs_ao_dxbc)},
+      {bgfx::RendererType::OpenGLES, fs_ao_essl, sizeof(fs_ao_essl)},
+      {bgfx::RendererType::Count, nullptr, 0}}},
+    {"fs_ao_blur",
+     {{bgfx::RendererType::Direct3D11, fs_ao_blur_dxbc, sizeof(fs_ao_blur_dxbc)},
+      {bgfx::RendererType::OpenGLES, fs_ao_blur_essl, sizeof(fs_ao_blur_essl)},
+      {bgfx::RendererType::Count, nullptr, 0}}},
+    {"fs_temporal",
+     {{bgfx::RendererType::Direct3D11, fs_temporal_dxbc, sizeof(fs_temporal_dxbc)},
+      {bgfx::RendererType::OpenGLES, fs_temporal_essl, sizeof(fs_temporal_essl)},
       {bgfx::RendererType::Count, nullptr, 0}}},
     BGFX_EMBEDDED_SHADER_END()};
 template <class T> void releaseHandle(T &h) {
@@ -134,7 +152,9 @@ struct WorldRenderer::Impl {
     sdk::PostProcess effects{};
     explicit Impl(Renderer &renderer) : r(renderer) {}
 #include "world_lighting.inl"
+#include "world_quality.inl"
     ~Impl() {
+        destroyQuality();
         destroyLighting();
         for (auto &m : meshes) {
             releaseHandle(m.vb);
@@ -157,6 +177,7 @@ struct WorldRenderer::Impl {
         targetsClear();
     }
     void targetsClear() {
+        qualityClear();
         releaseHandle(target);
         releaseHandle(ping);
         releaseHandle(pong);
@@ -176,7 +197,7 @@ struct WorldRenderer::Impl {
         uniforms.emplace(std::string(name), h);
         return h;
     }
-    void vec(const char *name, std::array<float, 4> value) {
+    void vec(std::string_view name, std::array<float, 4> value) {
         bgfx::setUniform(uniform(name), value.data());
     }
     void texture(uint8_t stage, const char *name, bgfx::TextureHandle h) {
@@ -193,6 +214,7 @@ struct WorldRenderer::Impl {
             .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
             .end();
         initLighting();
+        initQuality();
         lit = program("vs_mesh", "fs_material");
         instanced = program("vs_mesh_instanced", "fs_material");
         post = program("vs_post", "fs_post");
@@ -229,6 +251,8 @@ struct WorldRenderer::Impl {
             uint64_t flags = t.srgb ? BGFX_TEXTURE_SRGB : 0;
             if (!t.repeat)
                 flags |= BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+            if (t.linear && t.levels > 1)
+                flags |= BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC;
             if (!t.linear)
                 flags |= BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT;
             const TextureVariant *chosen = nullptr;
@@ -312,11 +336,12 @@ struct WorldRenderer::Impl {
         uint64_t flags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
         hdr = bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::RGBA16F, flags);
         auto f = hdr ? bgfx::TextureFormat::RGBA16F : bgfx::TextureFormat::RGBA8;
-        auto d = bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT)
-                     ? bgfx::TextureFormat::D24S8
+        auto d = bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D32F, BGFX_TEXTURE_RT)
+                     ? bgfx::TextureFormat::D32F
                      : bgfx::TextureFormat::D16;
         color = bgfx::createTexture2D(w, h, false, 1, f, flags);
-        depth = bgfx::createTexture2D(w, h, false, 1, d, BGFX_TEXTURE_RT);
+        depth = bgfx::createTexture2D(w, h, false, 1, d, BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP |
+                                          BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT);
         if (!bgfx::isValid(color) || !bgfx::isValid(depth)) {
             releaseHandle(color);
             releaseHandle(depth);
@@ -353,7 +378,8 @@ struct WorldRenderer::Impl {
             for (const auto &[name, info] : reflection) {
                 if (info.type == bgfx::UniformType::Sampler && name.starts_with("s_gm") &&
                     name != "s_gmShadow" && name != "s_gmIrradiance" && name != "s_gmRadiance" &&
-                    name != "s_gmRsmPosition" && name != "s_gmRsmNormal" && name != "s_gmRsmFlux")
+                    name != "s_gmRsmPosition" && name != "s_gmRsmNormal" && name != "s_gmRsmFlux" &&
+                    name != "s_gmAmbient")
                     throw std::runtime_error("Unknown engine lighting sampler: " + name);
                 if (info.num != 1 ||
                     (info.type != bgfx::UniformType::Vec4 && info.type != bgfx::UniformType::Sampler))
@@ -395,10 +421,8 @@ struct WorldRenderer::Impl {
         if (!frame.cameraEnabled && !overrideCamera)
             return;
         const auto &eye = overrideCamera ? overrideCamera->transform : frame.camera;
-        const auto &lens = overrideCamera ? overrideCamera->lens : frame.lens;
         auto camera = inverseAffine3D(eye),
-             projection = perspective3D(lens.fieldOfView, float(width) / height, lens.nearPlane,
-                                        lens.farPlane, bgfx::getCaps()->homogeneousDepth);
+             projection = qualityProjection;
         auto vp = multiply3D(projection, camera);
         bgfx::setViewTransform(view, camera.data(), projection.data());
         struct Item {
@@ -446,6 +470,7 @@ struct WorldRenderer::Impl {
                 }
                 bindMaterial(m, frame, eye);
                 bindLighting(assets, frame);
+                bindAmbient();
                 bgfx::setVertexBuffer(0, meshes.at(d.mesh).vb);
                 bgfx::setIndexBuffer(meshes.at(d.mesh).ib);
                 if (instance) {
@@ -460,7 +485,7 @@ struct WorldRenderer::Impl {
                     bgfx::setTransform(d.transform.data());
                 uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
                 if (m.depthTest)
-                    state |= BGFX_STATE_DEPTH_TEST_LESS;
+                    state |= depthPrepared ? BGFX_STATE_DEPTH_TEST_LEQUAL : BGFX_STATE_DEPTH_TEST_LESS;
                 if (m.depthWrite)
                     state |= BGFX_STATE_WRITE_Z;
                 if (m.cull == CullMode::Back)
@@ -518,18 +543,19 @@ struct WorldRenderer::Impl {
     void finish() {
         // Flush 2D world commands before submitting any post views.
         r.nextView();
+        auto resolved = temporalResolve();
         vec("u_bloom", {effects.bloomThreshold, effects.bloom ? effects.bloomIntensity : 0, 0, 0});
         if (effects.bloom) {
-            fullscreen(bloom, ping, {0, 0, float(bw), float(bh)}, color, black);
+            fullscreen(bloom, ping, {0, 0, float(bw), float(bh)}, resolved, black);
             vec("u_blur", {effects.bloomRadius / bw, 0, 0, 0});
             fullscreen(blur, pong, {0, 0, float(bw), float(bh)}, bgfx::getTexture(ping), black);
             vec("u_blur", {0, effects.bloomRadius / bh, 0, 0});
             fullscreen(blur, ping, {0, 0, float(bw), float(bh)}, bgfx::getTexture(pong), black);
         }
-        vec("u_post", {effects.exposure, effects.gamma, float(effects.toneMapping), float(effects.fxaa)});
+        vec("u_post", {effects.exposure, effects.gamma, float(effects.toneMapping), float(effects.fxaa && !temporalActive)});
         vec("u_postSize", {1.f / width, 1.f / height, 0, 0});
         vec("u_bloom", {effects.bloomThreshold, effects.bloom ? effects.bloomIntensity : 0, 0, 0});
-        fullscreen(post, BGFX_INVALID_HANDLE, viewport, color,
+        fullscreen(post, BGFX_INVALID_HANDLE, viewport, resolved,
                    effects.bloom ? bgfx::getTexture(ping) : black);
         r.backbuffer();
     }
@@ -568,7 +594,11 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
         std::min({g.effects.renderScale, float(limit) / viewport.w, float(limit) / viewport.h});
     g.targets(uint16_t(std::max(1.f, viewport.w * targetScale)),
               uint16_t(std::max(1.f, viewport.h * targetScale)), g.effects.bloom != 0);
+    g.allowTemporal = temporalAllowed_;
+    g.qualityBackground = background;
+    g.qualityBegin(assets, frame, camera);
     g.lightingPasses(assets, frame, camera);
+    g.ambientPass(assets, frame);
     bool hasSky = g.sky(assets, frame, camera);
     auto view = renderer_.nextView();
     bgfx::setViewName(view, "GM opaque and transparent 3D");
@@ -582,17 +612,18 @@ bool WorldRenderer::begin(const RenderAssets &assets, const RenderFrame &frame, 
                       linear((background >> 16) & 255), 1};
     auto palette = renderer_.clearColor(clear);
     if (hasSky)
-        bgfx::setViewClear(view, BGFX_CLEAR_DEPTH, uint32_t(0), 1.f, 0);
+        bgfx::setViewClear(view, g.depthPrepared ? BGFX_CLEAR_NONE : BGFX_CLEAR_DEPTH, uint32_t(0), 1.f, 0);
     else
-        bgfx::setViewClear(view, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 1.f, 0, palette);
+        bgfx::setViewClear(view, BGFX_CLEAR_COLOR | (g.depthPrepared ? 0 : BGFX_CLEAR_DEPTH), 1.f, 0, palette);
     bgfx::touch(view);
     g.draw(assets, frame, view, instancing_, camera);
     renderer_.layer2D(g.target, viewport, g.width, g.height, true);
     auto &s = renderer_.frameStats();
     s.meshBytes += g.meshBytes;
     s.materialTextureBytes += g.textureBytes;
-    s.targetBytes += g.targetBytes + g.lightingBytes;
+    s.targetBytes += g.targetBytes + g.lightingBytes + g.qualityBytes;
     s.lightingBytes += g.lightingBytes;
+    s.qualityBytes += g.qualityBytes;
     s.compressedTextures += g.compressed;
     s.mipLevels += g.mips;
     s.hdr = g.hdr;
