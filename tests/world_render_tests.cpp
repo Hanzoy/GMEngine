@@ -7,6 +7,8 @@
 #include <dbghelp.h>
 #include "fixtures/render/vs_custom_dxbc.bin.h"
 #include "fixtures/render/fs_custom_dxbc.bin.h"
+#include "fixtures/render/fs_shadow_visibility_dxbc.bin.h"
+#include "shaders/vs_mesh_dxbc.bin.h"
 #include <atomic>
 #include <iostream>
 #include <fstream>
@@ -352,6 +354,7 @@ int main(int argc, char **argv) {
                      {"stats", gm::renderDiagnostics(renderer.stats())}});
             }
             #include "lighting_gpu_tests.inl"
+            #include "shadow_filter_gpu_tests.inl"
 #include "quality_gpu_tests.inl"
             // Resize and repeated resource lifetimes must not retain targets from old worlds.
             for (int n = 0; n < 12; ++n) {

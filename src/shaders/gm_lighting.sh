@@ -39,10 +39,21 @@ vec3 gmLightCoord(vec3 world) {
     vec3 clip=vec3(dot(u_gmLightRow0,p),dot(u_gmLightRow1,p),dot(u_gmLightRow2,p));
     return vec3(clip.x*.5+.5,clip.y*u_gmClipUv.y+.5,clip.z*u_gmClipUv.z+u_gmClipUv.w);
 }
+// Interpolate comparison results, never raw depths across unrelated occluders.
+float gmShadowCompare(vec3 receiver,vec2 uv,vec2 gradient,float bias){
+    return step(receiver.z+dot(gradient,uv-receiver.xy)-bias,texture2D(s_gmShadow,uv).x);
+}
+float gmShadowBilinear(vec3 receiver,vec2 uv,vec2 gradient,float bias){
+    vec2 pixel=uv/u_gmShadow.y-.5,f=fract(pixel),base=(floor(pixel)+.5)*u_gmShadow.y;
+    float a=gmShadowCompare(receiver,base,gradient,bias);
+    float b=gmShadowCompare(receiver,base+vec2(u_gmShadow.y,0.0),gradient,bias);
+    float c=gmShadowCompare(receiver,base+vec2(0.0,u_gmShadow.y),gradient,bias);
+    float d=gmShadowCompare(receiver,base+vec2_splat(u_gmShadow.y),gradient,bias);
+    return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);
+}
 float gmShadow(vec3 world,vec3 normal) {
     if(u_gmShadow.x<.5)return 1.0;
     vec3 p=gmLightCoord(world+normal*u_gmShadow.w);
-    if(p.z<=0.0||p.z>=1.0||min(p.x,p.y)<=0.0||max(p.x,p.y)>=1.0)return 1.0;
     // The rasterized receiver plane differs from interpolated smooth vertex normals.
     // Solve its depth gradient in shadow UV space to avoid triangle-shaped self-shadow acne.
     vec3 receiver=gmLightCoord(world),dx=dFdx(receiver),dy=dFdy(receiver);
@@ -50,14 +61,28 @@ float gmShadow(vec3 world,vec3 normal) {
     vec2 gradient=abs(determinant)>1e-12?vec2(dx.z*dy.y-dy.z*dx.y,dx.x*dy.z-dy.x*dx.z)/determinant:vec2_splat(0.0);
     gradient=clamp(gradient,vec2_splat(-50.0),vec2_splat(50.0));
     float bias=u_gmShadow.z+.5*u_gmShadow.y*(abs(gradient.x)+abs(gradient.y));
-    float sum=0.0;
-    for(int y=-1;y<=1;++y)for(int x=-1;x<=1;++x){
-        vec2 offset=vec2(float(x),float(y))*u_gmShadow.y*u_gmShadowExtra.x;
-        float depth=texture2D(s_gmShadow,p.xy+offset).x;
-        sum+=step(p.z+dot(gradient,offset)-bias,depth);
+    if(p.z<=0.0||p.z>=1.0||min(p.x,p.y)<=0.0||max(p.x,p.y)>=1.0)return 1.0;
+    float visibility=0.0;
+    if(abs(u_gmShadowExtra.x-1.0)<.0001){
+        // Nine overlapping bilinear comparisons combine into 16 weighted point comparisons.
+        vec2 pixel=p.xy/u_gmShadow.y-.5,f=fract(pixel),base=(floor(pixel)+.5)*u_gmShadow.y;
+        for(int y=-1;y<=2;++y)for(int x=-1;x<=2;++x){
+            float wx=x==-1?1.0-f.x:(x==2?f.x:1.0);
+            float wy=y==-1?1.0-f.y:(y==2?f.y:1.0);
+            visibility+=wx*wy*gmShadowCompare(p,base+vec2(float(x),float(y))*u_gmShadow.y,gradient,bias);
+        }
+        visibility/=9.0;
+    }else if(u_gmShadowExtra.x<.0001){
+        visibility=gmShadowBilinear(p,p.xy,gradient,bias);
+    }else{
+        for(int y=-1;y<=1;++y)for(int x=-1;x<=1;++x){
+            vec2 uv=p.xy+vec2(float(x),float(y))*u_gmShadow.y*u_gmShadowExtra.x;
+            visibility+=gmShadowBilinear(p,uv,gradient,bias);
+        }
+        visibility/=9.0;
     }
     float edge=min(min(p.x,p.y),min(1.0-p.x,1.0-p.y));
-    return mix(1.0,sum/9.0,smoothstep(0.0,.035,edge));
+    return mix(1.0,visibility,smoothstep(0.0,.035,edge));
 }
 vec2 gmEnvironmentUv(vec3 direction) {
     vec3 d=vec3(direction.x*u_gmEnvironment.y-direction.z*u_gmEnvironment.z,direction.y,

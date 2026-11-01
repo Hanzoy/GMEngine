@@ -32,10 +32,11 @@ foreach($shader in $shaders){foreach($target in @(@('windows','s_5_0','dxbc'),@(
     [IO.File]::WriteAllLines($header,@(Get-Content -LiteralPath $header|ForEach-Object {$_.TrimEnd()}),[Text.UTF8Encoding]::new($false))
 }}
 
-foreach($shader in @(@('vs_custom','vertex'),@('fs_custom','fragment'))){foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){
+foreach($shader in @(@('vs_custom','vertex'),@('fs_custom','fragment'),@('fs_shadow_visibility','fragment'))){foreach($target in @(@('windows','s_5_0','dxbc'),@('android','300_es','essl'))){
     $fixture=Join-Path $engineSource 'tests/fixtures/render'
     $header=Join-Path $fixture "$($shader[0])_$($target[2]).bin.h"
-    & $ShaderCompiler -f "$fixture/$($shader[0]).sc" -o $header --type $shader[1] --platform $target[0] -p $target[1] --varyingdef "$fixture/varying.def.sc" -i "$engineSource/third_party/bgfx/src" --bin2c "$($shader[0])_$($target[2])" -O 3
+    $varying=if($shader[0] -eq 'fs_shadow_visibility'){"$engineSource/src/shaders/varying_3d.def.sc"}else{"$fixture/varying.def.sc"}
+    & $ShaderCompiler -f "$fixture/$($shader[0]).sc" -o $header --type $shader[1] --platform $target[0] -p $target[1] --varyingdef $varying -i "$engineSource/third_party/bgfx/src" --bin2c "$($shader[0])_$($target[2])" -O 3
     if($LASTEXITCODE){throw 'Custom shader fixture compilation failed'}
     [IO.File]::WriteAllLines($header,@(Get-Content -LiteralPath $header|ForEach-Object {$_.TrimEnd()}),[Text.UTF8Encoding]::new($false))
 }}

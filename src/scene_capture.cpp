@@ -82,6 +82,25 @@ int main(int argc, char **argv) {
         }
         // Diagnostic overrides affect only this loaded copy, never the project or compiled file.
         auto asset = gm::loadScene(argv[1]);
+        for (const auto &replacement : profile.value("shaderOverrides", gm::Json::array())) {
+            auto &shader = asset.rendering.shaders.at(replacement.at("shader").get<size_t>());
+            uint32_t backend = replacement.value("backend", 0u);
+            auto file = std::filesystem::path(replacement.at("fragment").get<std::string>());
+            if (file.is_relative())
+                file = std::filesystem::absolute(argv[4]).parent_path() / file;
+            std::ifstream input(file, std::ios::binary);
+            if (!input)
+                throw std::runtime_error("Cannot read diagnostic shader");
+            std::vector<uint8_t> bytes{std::istreambuf_iterator<char>(input), {}};
+            bool replaced = false;
+            for (auto &variant : shader.variants)
+                if (variant.backend == backend) {
+                    variant.fragment = bytes;
+                    replaced = true;
+                }
+            if (!replaced)
+                throw std::runtime_error("Diagnostic shader backend missing");
+        }
         const auto overrides = profile.value("materialOverrides", gm::Json::object());
         for (const auto &[name, values] : overrides.items()) {
             if (!values.is_array() || values.size() != 4)
