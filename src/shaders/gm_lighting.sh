@@ -1,5 +1,6 @@
 // Engine lighting ABI. Stages 0..7 belong to materials, 8..15 to the renderer.
 // Include after bgfx_shader.sh; all vectors are world-space, radiance is linear HDR.
+#include "gm_brdf.sh"
 SAMPLER2D(s_gmShadow,8);
 SAMPLER2D(s_gmIrradiance,9);
 SAMPLER2D(s_gmRadiance,10);
@@ -114,20 +115,25 @@ vec2 gmEnvironmentUv(vec3 direction) {
                 direction.x*u_gmEnvironment.z+direction.z*u_gmEnvironment.y);
     return vec2(atan2(d.z,d.x)*.1591549431+.5,acos(clamp(d.y,-1.0,1.0))*.3183098862);
 }
-vec3 gmEnvironment(vec3 n,vec3 v,vec3 base,float metal,float rough,float ao) {
+vec3 gmEnvironment(vec3 n,vec3 v,vec3 base,float metal,float rough,float ao,vec4 specularControl) {
     if(u_gmEnvironment.x<=0.0)return vec3_splat(0.0);
     float nv=max(dot(n,v),.0001);
-    vec3 f0=mix(vec3_splat(.04),base,metal);
-    vec3 fresnel=f0+(max(vec3_splat(1.0-rough),f0)-f0)*pow(1.0-nv,5.0);
-    vec3 diffuse=texture2D(s_gmIrradiance,gmEnvironmentUv(n)).xyz*base*(1.0-metal)*(1.0-fresnel);
+    vec3 f0=gmF0(base,metal,specularControl);
+    float f90=gmF90(metal,specularControl);
+    vec3 dielectric=clamp(specularControl.xyz,0.0,1.0);
+    vec3 fresnel=(dielectric+(max(vec3_splat(1.0-rough),dielectric)-dielectric)*pow(1.0-nv,5.0))*clamp(specularControl.w,0.0,1.0);
+    vec3 diffuse=texture2D(s_gmIrradiance,gmEnvironmentUv(n)).xyz*base*(1.0-metal)*(1.0-gmMax3(fresnel));
     vec3 reflection=reflect(-v,n);
     vec3 radiance=texture2DLod(s_gmRadiance,gmEnvironmentUv(reflection),rough*u_gmEnvironment.w).xyz;
     // Analytic split-sum DFG approximation (Brian Karis, Epic: Physically Based Shading on Mobile, 2014).
     vec4 r=rough*vec4(-1.0,-.0275,-.572,.022)+vec4(1.0,.0425,1.04,-.04);
     float a004=min(r.x*r.x,exp2(-9.28*nv))*r.x+r.y;
     vec2 ab=vec2(-1.04,1.04)*a004+r.zw;
-    vec3 specular=radiance*max(f0*ab.x+ab.y,vec3_splat(0.0));
+    vec3 specular=radiance*max(f0*ab.x+f90*ab.y,vec3_splat(0.0));
     return (diffuse+specular)*u_gmEnvironment.x*ao;
+}
+vec3 gmEnvironment(vec3 n,vec3 v,vec3 base,float metal,float rough,float ao){
+    return gmEnvironment(n,v,base,metal,rough,ao,vec4(.04,.04,.04,1.0));
 }
 vec3 gmIndirect(vec3 world,vec3 normal,vec3 base,float metal,float ao) {
     if(u_gmRsm.x<.5||metal>=1.0)return vec3_splat(0.0);
@@ -173,31 +179,33 @@ uniform vec4 u_gmPointP7;
 uniform vec4 u_gmPointC7;
 uniform vec4 u_gmFogColor;
 uniform vec4 u_gmFog;
-vec3 gmPoint(vec4 pr,vec4 ci,vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough){
+vec3 gmPoint(vec4 pr,vec4 ci,vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough,vec4 specularControl){
     if(ci.w<=0.0)return vec3_splat(0.0);
     vec3 delta=pr.xyz-p;float d2=dot(delta,delta);
     if(d2>=pr.w*pr.w)return vec3_splat(0.0);
-    vec3 l=delta*inversesqrt(max(d2,.0001)),h=normalize(v+l);
-    float nl=max(dot(n,l),0.0),nv=max(dot(n,v),.0001),nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
-    float a=rough*rough,a2=a*a,den=nh*nh*(a2-1.0)+1.0;
-    float distribution=a2/max(3.14159265*den*den,.00001),k=(rough+1.0)*(rough+1.0)/8.0;
-    float geometry=nl/(nl*(1.0-k)+k)*nv/(nv*(1.0-k)+k);
-    vec3 f0=mix(vec3_splat(.04),base,metal),f=f0+(1.0-f0)*pow(1.0-vh,5.0);
-    vec3 brdf=(1.0-f)*(1.0-metal)*base*.3183098862+distribution*geometry*f/max(4.0*nl*nv,.0001);
+    vec3 l=delta*inversesqrt(max(d2,.0001));
+    float nl=max(dot(n,l),0.0);
+    vec3 brdf=gmDirectBrdf(n,v,l,base,metal,rough,specularControl);
     float fade=max(1.0-pow(d2/(pr.w*pr.w),2.0),0.0);
     return brdf*ci.xyz*ci.w*nl*fade*fade/max(d2,.04);
 }
-vec3 gmLocalLighting(vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough){
+vec3 gmPoint(vec4 pr,vec4 ci,vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough){
+    return gmPoint(pr,ci,p,n,v,base,metal,rough,vec4(.04,.04,.04,1.0));
+}
+vec3 gmLocalLighting(vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough,vec4 specularControl){
     vec3 result=vec3_splat(0.0);
-    result+=gmPoint(u_gmPointP0,u_gmPointC0,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP1,u_gmPointC1,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP2,u_gmPointC2,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP3,u_gmPointC3,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP4,u_gmPointC4,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP5,u_gmPointC5,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP6,u_gmPointC6,p,n,v,base,metal,rough);
-    result+=gmPoint(u_gmPointP7,u_gmPointC7,p,n,v,base,metal,rough);
+    result+=gmPoint(u_gmPointP0,u_gmPointC0,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP1,u_gmPointC1,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP2,u_gmPointC2,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP3,u_gmPointC3,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP4,u_gmPointC4,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP5,u_gmPointC5,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP6,u_gmPointC6,p,n,v,base,metal,rough,specularControl);
+    result+=gmPoint(u_gmPointP7,u_gmPointC7,p,n,v,base,metal,rough,specularControl);
     return result;
+}
+vec3 gmLocalLighting(vec3 p,vec3 n,vec3 v,vec3 base,float metal,float rough){
+    return gmLocalLighting(p,n,v,base,metal,rough,vec4(.04,.04,.04,1.0));
 }
 vec3 gmHeightFog(vec3 color,vec3 world,vec3 eye){
     if(u_gmFogColor.w<=0.0)return color;

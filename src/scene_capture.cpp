@@ -112,6 +112,20 @@ int main(int argc, char **argv) {
                             if (!values[i].is_null())
                                 parameter.value[i] = values[i].get<float>();
         }
+        for (const auto &replacement : profile.value("materialParameterOverrides", gm::Json::array())) {
+            auto &material = asset.rendering.materials.at(replacement.at("material").get<size_t>());
+            for (const auto &[name, values] : replacement.at("parameters").items()) {
+                if (!values.is_array() || values.size() != 4)
+                    throw std::runtime_error("Indexed material override requires four numbers");
+                auto value = values.get<std::array<float, 4>>();
+                auto found = std::find_if(material.parameters.begin(), material.parameters.end(),
+                                          [&](const auto &p) { return p.name == name; });
+                if (found == material.parameters.end())
+                    material.parameters.push_back({name, value});
+                else
+                    found->value = value;
+            }
+        }
         gm::validateRenderAssets(asset.rendering);
         gm::SceneRuntime scene(std::move(asset), std::filesystem::path(argv[1]).parent_path());
         scene.tick(1.f / 60, {});

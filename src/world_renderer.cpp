@@ -370,6 +370,7 @@ struct WorldRenderer::Impl {
         if (m.shader == UINT32_MAX) {
             vec("u_baseColor", {1, 1, 1, 1});
             vec("u_surface", {0, .6f, 0, 0});
+            vec("u_specular", {.04f, .04f, .04f, 1});
             vec("u_emission", {0, 0, 0, 0});
             vec("u_unlit", {0, 0, 0, 0});
             vec("u_planar", {0, 0, 0, 0});

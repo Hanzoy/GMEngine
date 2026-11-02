@@ -1,0 +1,165 @@
+{
+  "date": "2026-11-02",
+  "hardware": "Intel i9-14900K / NVIDIA RTX 4090 D",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "backend": "D3D11",
+  "surface": "hidden, no vsync",
+  "warmupFrames": 120,
+  "sampleFrames": 600,
+  "rounds": 3,
+  "source": "same cooked scene, in-memory shader/parameter overrides",
+  "sourceCommit": "92d1e3917f32d4fb5ea2e85a031e45a0c0a104a4",
+  "comparison": "not visible Player FPS; not UE comparison",
+  "results": {
+    "before": {
+      "rounds": [
+        {
+          "frameWall": {
+            "samples": 600,
+            "p50Ms": 11.03,
+            "p95Ms": 11.9903,
+            "maxMs": 14.7602
+          },
+          "frontend": {
+            "samples": 600,
+            "p50Ms": 10.3342,
+            "p95Ms": 11.2168,
+            "maxMs": 13.7234
+          },
+          "gpu": {
+            "samples": 600,
+            "p50Ms": 6.72768,
+            "p95Ms": 8.15104,
+            "maxMs": 10.75712
+          }
+        },
+        {
+          "frameWall": {
+            "samples": 600,
+            "p50Ms": 11.0528,
+            "p95Ms": 11.7964,
+            "maxMs": 12.7143
+          },
+          "frontend": {
+            "samples": 600,
+            "p50Ms": 10.3602,
+            "p95Ms": 11.0167,
+            "maxMs": 11.6079
+          },
+          "gpu": {
+            "samples": 600,
+            "p50Ms": 6.774784,
+            "p95Ms": 8.097792,
+            "maxMs": 10.657792
+          }
+        },
+        {
+          "frameWall": {
+            "samples": 600,
+            "p50Ms": 11.0371,
+            "p95Ms": 11.8037,
+            "maxMs": 12.766
+          },
+          "frontend": {
+            "samples": 600,
+            "p50Ms": 10.3564,
+            "p95Ms": 11.072,
+            "maxMs": 12.1108
+          },
+          "gpu": {
+            "samples": 600,
+            "p50Ms": 6.811648,
+            "p95Ms": 8.24832,
+            "maxMs": 10.228736
+          }
+        }
+      ],
+      "medianOfP50Ms": {
+        "frameWall": 11.0371,
+        "frontend": 10.3564,
+        "gpu": 6.774784
+      }
+    },
+    "after": {
+      "rounds": [
+        {
+          "frameWall": {
+            "samples": 600,
+            "p50Ms": 11.3253,
+            "p95Ms": 12.0638,
+            "maxMs": 13.5097
+          },
+          "frontend": {
+            "samples": 600,
+            "p50Ms": 10.6264,
+            "p95Ms": 11.3647,
+            "maxMs": 12.8331
+          },
+          "gpu": {
+            "samples": 600,
+            "p50Ms": 6.81472,
+            "p95Ms": 8.136704,
+            "maxMs": 9.547776
+          }
+        },
+        {
+          "frameWall": {
+            "samples": 600,
+            "p50Ms": 11.3356,
+            "p95Ms": 12.0526,
+            "maxMs": 13.0888
+          },
+          "frontend": {
+            "samples": 600,
+            "p50Ms": 10.6374,
+            "p95Ms": 11.2838,
+            "maxMs": 12.2722
+          },
+          "gpu": {
+            "samples": 600,
+            "p50Ms": 6.90176,
+            "p95Ms": 8.337408,
+            "maxMs": 11.96544
+          }
+        },
+        {
+          "frameWall": {
+            "samples": 600,
+            "p50Ms": 11.2869,
+            "p95Ms": 11.911,
+            "maxMs": 12.9461
+          },
+          "frontend": {
+            "samples": 600,
+            "p50Ms": 10.5922,
+            "p95Ms": 11.1515,
+            "maxMs": 12.2563
+          },
+          "gpu": {
+            "samples": 599,
+            "p50Ms": 6.892544,
+            "p95Ms": 8.341504,
+            "maxMs": 9.428992
+          }
+        }
+      ],
+      "medianOfP50Ms": {
+        "frameWall": 11.3253,
+        "frontend": 10.6264,
+        "gpu": 6.892544
+      }
+    }
+  },
+  "sameWorkload": {
+    "drawCalls": 3515,
+    "triangles": 27974229,
+    "reflectionDraws": 1111,
+    "reflectionTriangles": 25494486,
+    "meshBytes": 1284589576,
+    "materialTextureBytes": 1008066660,
+    "targetBytes": 62157824
+  }
+}

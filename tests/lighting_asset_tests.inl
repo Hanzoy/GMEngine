@@ -96,6 +96,10 @@ auto snapped = gm::shadowProjection(projectionAssets, projectionFrame, movedEye,
 check(snapped.clip[12] == projection.clip[12] && snapped.clip[13] == projection.clip[13],
       "Shadow projection not texel snapped");
 // SH diffuse convolution preserves a directional, low-frequency radiance field.
+check(gm::normalizedMaterial({{"format", "gm.material"}, {"version", 1},
+                              {"parameters", {{"u_specular", {.04, .04, .04, .5}}}}})
+          ["parameters"]["u_specular"][3] == .5,
+      "Builtin material discarded dielectric specular control");
 gm::HdrImage gradientSky{64, 32, std::vector<float>(64 * 32 * 3)};
 for (uint32_t y = 0; y < 32; ++y)
     for (uint32_t x = 0; x < 64; ++x)
