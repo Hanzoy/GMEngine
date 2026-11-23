@@ -1,6 +1,6 @@
 # 第三方依赖
 
-下载入口与版本固定在 `scripts/setup-deps.ps1`。本项目没有修改第三方源码。
+本文件记录 GM Engine 使用的第三方组件、固定版本及许可。引擎的依赖获取脚本为 `scripts/setup-deps.ps1` 和 `scripts/setup-ecs.ps1`。安装目录的 `licenses/` 保存随引擎分发的许可副本。
 
 | 依赖 | 固定版本 | 许可 |
 | --- | --- | --- |
@@ -27,17 +27,15 @@ ECS 下载入口为 `scripts/setup-ecs.ps1`。本次获取的 SHA-256：
 | EnTT 4.0.0 entt.hpp | `EEDCB83FEDFFE640334EF69A0647625A186CF1DAEB333B21B0A1445F01E89B6C` |
 | EnTT 3.16.0 entt.hpp | `3272191CF3D46CEC92368F918695502DC8D174C92E0B8B4A5D53FED28E240C9F` |
 
-游戏工作区的 `scripts/package-scene.ps1` 为场景发布包附带 Flecs、bgfx、bx、bimg 的许可。EnTT 仅参与测试，不进入 Player 发布包。
+生成 Windows 游戏运行包时，引擎的 `project.package` 会把 bgfx、bx、bimg、Flecs 和 miniaudio 的许可复制到游戏项目的 `dist/licenses/`。EnTT 仅用于引擎测试。
 
 Windows 字体使用当前系统安装的 Microsoft YaHei UI，不重新分发。Android 使用上述 Roboto，或项目自行提供的已授权 font.ttf。bgfx / bimg 的第三方组件保留其原始版权和许可文件；分发二进制时应一并保留所用组件的许可声明。
 
-miniaudio 头文件由 `scripts/setup-deps.ps1` 获取并验证 SHA-256 `6B2029714F8634C4D7C70CC042F45074E0565766113FC064F20CD27C986BE9C9`。Android 构建工具独立安装在构建目录，不进入源码仓库；APK 分发 NDK 的 NOTICE / NOTICE.toolchain。Android SDK / NDK 安装者应遵循其许可。
+miniaudio 头文件由 `scripts/setup-deps.ps1` 获取并验证 SHA-256 `6B2029714F8634C4D7C70CC042F45074E0565766113FC064F20CD27C986BE9C9`。Android 打包脚本使用本机安装的 SDK 和 NDK，并将该 NDK 的 `NOTICE` 和 `NOTICE.toolchain` 复制到 APK 中。Android 工具链适用各自的许可。
 
-`gm_player` 不链接 nlohmann/json；JSON 仅用于编辑器、CLI、资源编译器及测试。游戏工作区的 `scripts/package-example.ps1` 将 bgfx、bx、bimg 的许可文件复制到发布目录的 `licenses` 中。
+编辑器、CLI、资源编译器和测试使用 nlohmann/json 读取开发期数据。`gm_player` 读取编译后的场景和 UI。
 
-PNG/JPEG 解码使用独立的 `gm_image_import` 模块，仅链接到编辑器、资源编译器和测试；Player 不链接 stb_image。游戏工作区的 `UIExamples/assets/images` 中两张示例图使用内置 imagegen 生成，生成提示词与原始尺寸记录在该目录的 README 中。
-
-引擎安装通过 CMake install 将第三方许可复制到 SDK 的 licenses 目录；stb_image 的 MIT 许可副本位于 resources/stb-license.txt。
+PNG/JPEG 解码使用工具侧的 `gm_image_import` 模块。stb_image 的 MIT 许可副本位于 `resources/stb-license.txt`，并随引擎安装。
 
 0.10 的 mipmap 和 BC3 / ASTC / ETC2 编码位于工具侧 `gm_render_compiler`，使用 bimg / bimg_encode 的编解码器。通用 Shader 通过可选的 bgfx shaderc 离线编译。Player 不链接 `gm_render_compiler` 或 `bimg_encode`，不执行材质 JSON 解析与纹理编码。安装包保留 bgfx / bx / bimg 第三方子目录的许可声明。
 

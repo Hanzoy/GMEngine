@@ -1,12 +1,14 @@
 # 独立游戏项目、原生组件与 System（v0.7）
 
+本文记录 v0.7 引入原生游戏模块时的设计。数据格式、ABI 和验收结果对应当时的版本，命令示例使用现行的安装目录布局。当前的创建和打包步骤见[仓库首页](../README.md)和[安装版使用指南](../resources/sdk-readme.md)。
+
 本版把游戏规则从引擎中移到独立 C++ 项目。项目只依赖 `sdk/include/gm/game.hpp`，编译成自己的原生模块；编辑器、命令行和 Player 使用同一套注册信息。添加项目组件或 System 不需要修改、重新编译引擎。
 
 当前可用链路是 Windows x64 / C++20 / MSVC / CMake。这里的“脚本”是项目里的原生 C++ 游戏逻辑，不是尚未实现的 Lua、C# 或 JavaScript VM。移动端的链接、打包与脚本部署不在本版范围内。
 
 ## 1. 项目与引擎的边界
 
-迁移后的示例位于 `../GMEngineGame/CrystalMeadow`，可以复制到引擎之外。旧源资源保留在 `../GMEngineGame/UIExamples/assets/scenes`；示例脚本位于 `../GMEngineGame/scripts`。引擎默认构建不依赖这个外部工作区。
+CrystalMeadow 是独立游戏项目。其项目清单、源码、原始场景和素材都随项目目录保存，游戏通过已安装的 SDK 构建。以下目录树展示 v0.7 示例的布局。
 
 ```text
 CrystalMeadow/
@@ -191,11 +193,11 @@ HUD 现在绑定任意数值组件字段，例如：
 
 ## 7. 人工编辑流程
 
-1. 运行 `../GMEngineGame/scripts/launch.ps1`，或通过“项目 → 打开游戏项目”选择 `.gmproject`。
+1. 从引擎安装目录启动 `bin/gm_editor.exe`，在项目选择器中打开 `.gmproject`。
 2. “项目 → 新建游戏项目”生成独立基础模板，选择一个不存在的新目录。
 3. 在层级中选中实体；检查器的组件页可添加、移除、修改项目组件。布尔字段显示开关，图片字段提供选择器；依赖与取值规则由公共命令层校验。
 4. 检查器切换到 Systems 查看阶段、执行顺序与所属模块；开关控制当前场景的执行，支持 Ctrl+Z / Ctrl+Y / Ctrl+S。
-5. 在自己的代码编辑器修改 `Scripts/`。编辑器“项目 → 打开原生脚本目录”可定位；随后停止、保存所有标签，再“构建项目模块与场景”。构建错误详情在 `build/native-build.log`。当前构建是同步操作，界面会暂时等待。
+5. 在自己的代码编辑器修改 `Scripts/`。停止试玩并保存所有标签后，选择“项目 → 构建项目模块与场景”。构建日志位于项目的 `build/native-build.log`。
 6. F5 运行当前场景，包括未保存的资源修改；F7 暂停、Shift+F7 单步、F8 停止。运行中 Inspector 显示实时值并禁止修改编辑源。
 7. “项目 → 生成 Windows 运行包”输出到项目 `dist/`。它使用已构建模块，源码修改后应先构建。
 
@@ -203,60 +205,57 @@ HUD 现在绑定任意数值组件字段，例如：
 
 ## 8. 命令行流程
 
-以下命令在引擎根目录执行。PowerShell 7 使用 UTF-8 管道，或使用 `--request` 传 JSON 文件。
+以下命令在引擎安装目录执行。示例使用已创建的 `Games/MyGame`，可将 `$game` 换成自己的游戏目录。PowerShell 7 可以通过管道发送 JSON，或用 `--request` 指定 JSON 文件。
 
 ```powershell
-# 默认示例：构建、运行、发布
-../GMEngineGame/scripts/run-scene.ps1
-../GMEngineGame/scripts/package-scene.ps1
-
-# 创建独立项目（目录必须不存在）
-'{"op":"project.create","directory":"D:/Games/MyGame","name":"MyGame"}' |
-  ../GMEngineSDK/bin/gmctl.exe --project ../GMEngineGame/CrystalMeadow/game.gmproject
-
-# 自己的项目构建 / 查询
-'{"op":"project.build"}' | ../GMEngineSDK/bin/gmctl.exe --project D:/Games/MyGame/game.gmproject
-'{"op":"describe"}' | ../GMEngineSDK/bin/gmctl.exe --project D:/Games/MyGame/game.gmproject
-
-# 仅依赖 SDK 的独立 CMake 构建，不参与引擎构建
-cmake -S D:/Games/MyGame -B D:/Games/MyGame/build -G "Visual Studio 17 2022" -A x64 -DGMEngine_DIR=D:/Demo/GMEngineSDK/sdk/cmake
-cmake --build D:/Games/MyGame/build --config Release
+$game = Join-Path $env:USERPROFILE 'Games/MyGame'
+$manifest = Join-Path $game 'game.gmproject'
+$cli = (Resolve-Path './bin/gmctl.exe').Path
+'{"op":"describe"}' | & $cli --project $manifest
+'{"op":"project.build"}' | & $cli --project $manifest
+'{"op":"project.package"}' | & $cli --project $manifest
 ```
 
-同一个 `--stdio` 进程保存编辑、撤销和运行世界：
+如果只想用 CMake 编译项目的原生模块，可以直接指定本安装的 SDK。
+
+```powershell
+$sdkConfig = (Resolve-Path './sdk/cmake').Path
+$build = Join-Path $game 'build'
+cmake -S $game -B $build -G 'Visual Studio 17 2022' -A x64 "-DGMEngine_DIR=$sdkConfig"
+cmake --build $build --config Release
+```
+
+同一个 `--stdio` 进程保留编辑和模拟状态。以下命令列出当前项目注册的系统，并在独立模拟中推进十帧。
 
 ```powershell
 @'
-{"op":"component.set","id":"f38c5f65-42b3-4a22-a75d-a574d3b45a03","type":"HealthRegen","field":"perSecond","value":5}
 {"op":"system.list"}
-{"op":"preview.run"}
+{"op":"preview.run","paused":true}
 {"op":"runtime.step","frames":10,"x":1,"y":0}
 {"op":"runtime.query"}
 {"op":"preview.stop"}
-{"op":"undo"}
-'@ | ../GMEngineSDK/bin/gmctl.exe --project ../GMEngineGame/CrystalMeadow/game.gmproject --stdio
+'@ | & $cli --project $manifest --stdio
 ```
 
 离线 `preview.run` 初始化为暂停，用 `runtime.step` 明确推进固定 1/60 秒；没有图形窗口或后台实时循环。编辑器运行默认按真实时间推进，可传 `{"op":"preview.run","paused":true}` 创建确定性的暂停世界后按相同步骤验证。
 
 `runtime.query` 返回每个实体的所有注册组件字段和 HUD 状态；不再使用仅对示例生效的顶层 `health` 字段。编辑状态修改只有在同一进程执行 `save` 才写盘。
 
-编辑器与命令行协作：
+要读取已打开编辑器中的状态，先确认该编辑器会话的目录，将其路径赋给 `$session`，然后查询已注册的系统。
 
 ```powershell
-'{"op":"system.set","name":"meadow.Regeneration","enabled":false}' |
-  ../GMEngineSDK/bin/gmctl.exe --live ../GMEngineGame/.gmengine/session
+'{"op":"system.list"}' | & $cli --live $session
 ```
 
 `project.open/query/create/build/reload/package`、`component.*`、`system.list/set`、`preview.*` 和 `runtime.*` 均有无窗口实现或实时对应入口。GUI 菜单/属性面板通过相同编辑服务执行；文件对话框、面板选择等纯界面操作只存在于 GUI。CLI 的 `project.build` 可在上次 DLL 无效时先编译修复源码，再加载模块。
 
 ## 9. 已验证与明确边界
 
-引擎验证报告写入 `../GMEngineBuild/build/`，游戏验证写入游戏工作区的 `build/`：
+以下是 v0.7 的验证记录。引擎测试生成引擎构建报告，各游戏的验证脚本和对照数据由项目自行保存。
 
 - `ctest`：场景、编辑命令、UI 运行时、图片、渲染五套测试。
 - `project-verification.json`：引擎之外的中文/空格路径项目，SDK 独立构建，新增 `game.Clock` 组件/System，命名空间字段编辑，System 开关，循环依赖拒绝及恢复，二进制发布和模块指纹不匹配拒绝；并校验引擎三个 exe 哈希未变化。
-- `../../GMEngineGame/build/scene-live-verification.json`：真实编辑器进程中的注册、组件编辑、撤销、暂停单步、生命 HUD、源/运行隔离、构建重载和检查器切换。
+- `scene-live-verification.json` 记录了真实编辑器进程中的注册、组件编辑、撤销、暂停单步、生命 HUD、源与运行状态隔离、构建重载和检查器切换。
 - `runtime-deployment-verification.json`：Player 不链接编辑依赖，二进制资源可独立部署，拒绝损坏数据与 JSON。
 
-发布目前打包清单的单个入口场景，图片和 HUD 内嵌其中；不提供多场景跳转、流式加载、Prefab、移动端包、插件依赖部署、脚本调试或状态保留热重载。Windows 运行包仍依赖对应 Visual C++ 运行库。后续扩展应沿 SDK、组件组合、System 调度和资源版本迁移继续推进。
+v0.7 的发布包包含清单的单个入口场景，图片和 HUD 内嵌其中，当时的 Windows 运行包依赖对应的 Visual C++ 运行库。该版的验收范围限于单场景 Windows 项目。

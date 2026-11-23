@@ -32,13 +32,12 @@
 
 ## 合作建造：运行和开发
 
-独立项目在 `D:\Demo\GMEngineGame\projects\CoopWorkshop`。项目源代码与图片不属于引擎仓库。
+CoopWorkshop 是用于联机验证的独立游戏项目。已持有该项目的开发者可以从项目根目录运行随项目提供的脚本。仅有引擎源码时，可以从项目选择器新建 Basic 游戏来体验编辑和打包。
 
 ```powershell
-cd D:\Demo\GMEngineGame\projects\CoopWorkshop
 ./tools/build.ps1
 ./tools/run.ps1 -Role host
-# 第二台电脑复制完整 dist 目录；也可复制项目后运行：
+# 在第二台电脑的 CoopWorkshop 项目中运行，地址换成房主的局域网 IPv4
 ./tools/run.ps1 -Role client -Address 192.168.1.20
 ```
 
@@ -102,20 +101,41 @@ Steam 目前没有后端，不提供虚假的 Steam 开关。后续在同一会�
 
 file 相对项目 build 目录，使用实际 load 返回的句柄。运行中实例化遵循 ECS 的延迟结构变更规则。`.wav/.mp3/.flac` 复制到构建和发布目录的 `assets/`；它们是运行时音频文件，不参与 JSON 解析。项目打包包含已编译场景、预制体、原生模块、音频和许可证。资源索引继续跟踪源资产依赖，未改变场景复用编译结果。
 
-## Android Touch Lab
+## Android
 
-独立项目 `D:\Demo\GMEngineGame\projects\TouchLab` 使用与 Windows 相同的 ECS、UI、输入映射和二进制资源。NativeActivity 静态链接游戏模块和 libc++，bgfx 使用 OpenGL ES。首次安装或内容版本变化时解包内容；之后启动复用私有内容目录。UI 按 NativeActivity contentRect 避开系统内容区，触点映射回设计坐标。暂停时尝试保存 `android-suspend`，恢复重置模拟时钟；自定义 System 必须提供存档回调才能保存其私有状态。
+### 从源码打包调试 APK
+
+先在 Windows 上构建并安装同一份引擎源码，再准备 PowerShell 7、Python 3（`py -3`）、JDK 17（含 `keytool`）、Android NDK r29、SDK Platform 35、Build Tools 35 和 Ninja。脚本先构建 Windows 游戏模块和资源，再交叉编译 Android ARM64 原生库，因此也需要 Windows 的 CMake 和 C++ 工具链。
+
+下面的示例从引擎源码根目录运行。将 `Project` 换成自己的项目清单，`AppPackage` 换成该游戏的 Android 应用 ID。示例用 `ANDROID_HOME` 和 `ANDROID_NDK_ROOT` 指向已安装的 SDK 和 NDK，从 `PATH` 查找 Ninja。`BuildTools` 应对应本机实际安装的 35.x 版本目录。
 
 ```powershell
-cd D:\Demo\GMEngine
-./scripts/build-android.ps1 -Project D:/Demo/GMEngineGame/projects/TouchLab/game.gmproject
-# 连接并授权 Android 设备后：
-D:/Demo/GMEngineBuild/tools/Android/platform-tools/adb.exe install -r D:/Demo/GMEngineGame/projects/TouchLab/dist/android/com.gmengine.touchlab-debug.apk
+$android = @{
+    Project    = '../GMEngineGame/projects/MyGame/game.gmproject'
+    AppPackage = 'com.example.mygame'
+    NdkRoot    = $env:ANDROID_NDK_ROOT
+    AndroidJar = Join-Path $env:ANDROID_HOME 'platforms/android-35/android.jar'
+    BuildTools = Join-Path $env:ANDROID_HOME 'build-tools/35.0.0'
+    Ninja      = (Get-Command ninja -CommandType Application).Source
+}
+./scripts/build-android.ps1 @android
 ```
 
-构建需要 Windows 游戏构建工具、PowerShell 7、Python 3、JDK 17、Android NDK r29、API 35 平台、Build Tools 35 和 Ninja。脚本可传 `-NdkRoot`、`-BuildTools`、`-AndroidJar`、`-Ninja`、`-AppPackage`，不依赖本机固定盘符。默认指向相邻 GMEngineBuild/tools 中的已安装工具。当前脚本面向简单 `Scripts/*.cpp` 项目；自定义第三方库 / 额外 CMake 依赖还需补平台配置。
+生成物在游戏项目的 `dist/android/<应用 ID>-debug.apk`。脚本会检查 APK 签名和原生库对齐。当前脚本收集 `Scripts/` 下的 C++ 源文件，自定义第三方原生库或额外的 CMake 依赖需要补充 Android 构建配置。
 
-本机已生成 **ARM64 / Android 8.0+ / target 35 的调试签名 APK**，验证 v2 / v3 签名和 16 KiB 库对齐。尚未连接 Android 设备，未宣称触摸、音频、GPU 或生命周期已通过真机测试。默认 Roboto 支持拉丁字符；中文项目应提供有授权的 `assets/font.ttf`。APK 是开发验证包，尚非商店发布配置。
+### 引擎设置与平台工具链（规划）
+
+- **安装时选装。** 勾选 Android 后，安装程序会一并安装 GM 的 Android 打包组件及所需工具。
+- **稍后使用已有工具。** 在“引擎设置 → 平台工具链”选择已有 SDK 和 NDK 目录。引擎负责检查组件和版本并记住有效路径，供这台电脑上的游戏项目复用。
+- **项目只保存发布参数。** 目标平台、应用 ID 等随项目保存。换一款游戏可继续使用同一套工具链，换电脑后在新机器的引擎设置中配置一次。
+
+以上安装选项和设置页属于已确定的设计。当前可用流程是上一节的源码脚本及显式路径参数。
+
+### Android Touch Lab
+
+独立验证项目 Touch Lab 与 Windows 共用 ECS、UI、输入映射和二进制资源。NativeActivity 静态链接游戏模块和 libc++，bgfx 使用 OpenGL ES。首次安装或内容版本变化时解包资源，之后复用私有目录。UI 按 NativeActivity contentRect 避开系统内容区，触点映射回设计坐标。暂停时尝试保存 `android-suspend`，恢复时重置模拟时钟。自定义 System 需要存档回调以保存私有状态。
+
+该项目已生成 ARM64、最低 Android 8.0、target 35 的调试 APK，并验证 v2 / v3 签名和 16 KiB 库对齐。触摸、音频、GPU 和生命周期仍待真机验收。默认 Roboto 支持拉丁字符，中文项目可自行提供有授权的 `assets/font.ttf`。
 
 ## 验证记录（2026-10-31）
 
